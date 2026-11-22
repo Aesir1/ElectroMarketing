@@ -17,10 +17,249 @@ namespace ElectroMarketing.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Contacts.Category", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("Categories");
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Contacts.Contact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<bool>("EmailOptOut")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly?>("ObtainedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("PhoneE164")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("SearchText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("SmsOptOut")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Street")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("ObtainedOn");
+
+                    b.HasIndex("PhoneE164")
+                        .IsUnique();
+
+                    b.HasIndex("SearchText");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchText"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("SearchText"), new[] { "gin_trgm_ops" });
+
+                    b.ToTable("Contacts");
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Contacts.ContactImport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Change")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ImportBatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RowNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId");
+
+                    b.HasIndex("ImportBatchId");
+
+                    b.ToTable("ContactImports");
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Contacts.ImportBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("CreatedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Culture")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ErrorCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset?>("FinishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<int>("SkippedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("UnchangedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("UpdatedCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("ImportBatches");
+                });
 
             modelBuilder.Entity("ElectroMarketing.Domain.Documents.Document", b =>
                 {
@@ -133,6 +372,136 @@ namespace ElectroMarketing.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ProcessedMessages");
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Contacts.ContactImport", b =>
+                {
+                    b.HasOne("ElectroMarketing.Domain.Contacts.Contact", "Contact")
+                        .WithMany("Imports")
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ElectroMarketing.Domain.Contacts.ImportBatch", "ImportBatch")
+                        .WithMany()
+                        .HasForeignKey("ImportBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsMany("ElectroMarketing.Domain.Contacts.FieldChange", "Changes", b1 =>
+                        {
+                            b1.Property<Guid>("ContactImportId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<string>("Field")
+                                .IsRequired();
+
+                            b1.Property<string>("New");
+
+                            b1.Property<string>("Old");
+
+                            b1.HasKey("ContactImportId", "__synthesizedOrdinal");
+
+                            b1.ToTable("ContactImports");
+
+                            b1
+                                .ToJson("Changes")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ContactImportId");
+                        });
+
+                    b.Navigation("Changes");
+
+                    b.Navigation("Contact");
+
+                    b.Navigation("ImportBatch");
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Contacts.ImportBatch", b =>
+                {
+                    b.HasOne("ElectroMarketing.Domain.Contacts.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ElectroMarketing.Domain.Documents.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("ElectroMarketing.Domain.Contacts.ColumnMapping", "Mapping", b1 =>
+                        {
+                            b1.Property<Guid>("ImportBatchId");
+
+                            b1.Property<string>("City");
+
+                            b1.Property<string>("Country");
+
+                            b1.Property<string>("Email");
+
+                            b1.Property<string>("Name");
+
+                            b1.Property<string>("ObtainedOn");
+
+                            b1.Property<string>("Phone");
+
+                            b1.Property<string>("PostalCode");
+
+                            b1.Property<string>("Street");
+
+                            b1.HasKey("ImportBatchId");
+
+                            b1.ToTable("ImportBatches");
+
+                            b1
+                                .ToJson("Mapping")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ImportBatchId");
+                        });
+
+                    b.OwnsMany("ElectroMarketing.Domain.Contacts.ImportRowError", "Errors", b1 =>
+                        {
+                            b1.Property<Guid>("ImportBatchId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<string>("Message")
+                                .IsRequired();
+
+                            b1.Property<int>("Row");
+
+                            b1.HasKey("ImportBatchId", "__synthesizedOrdinal");
+
+                            b1.ToTable("ImportBatches");
+
+                            b1
+                                .ToJson("Errors")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ImportBatchId");
+                        });
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Errors");
+
+                    b.Navigation("Mapping")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Contacts.Contact", b =>
+                {
+                    b.Navigation("Imports");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using ElectroMarketing.Domain.Abstractions;
+using ElectroMarketing.Domain.Contacts;
 using ElectroMarketing.Domain.Documents;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,8 +14,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    public DbSet<Contact> Contacts => Set<Contact>();
+
+    public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+
+    public DbSet<ContactImport> ContactImports => Set<ContactImport>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresExtension("pg_trgm");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
         foreach (var type in modelBuilder.Model.GetEntityTypes().Select(t => t.ClrType).ToList())
