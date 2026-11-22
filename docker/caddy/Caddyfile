@@ -92,8 +92,8 @@
 			window 1m
 		}
 	}
-	# ponytail: the 7-char regex also matches `/graphql`, so it is excluded; any other 7-char Api route (e.g. /metrics) must be excluded too.
-	@tracking expression `path('/o/*', '/u/*', '/landing/*') || ({http.request.uri.path}.matches('^/[A-Za-z0-9]{7}$') && {http.request.uri.path} != '/graphql')`
+	# ponytail: the 7-char regex also matches `/graphql`, so it is excluded (path() is case-insensitive, like ASP.NET routing); any other 7-char Api route (e.g. /metrics) must be excluded too.
+	@tracking expression `path('/o/*', '/u/*', '/landing/*') || ({http.request.uri.path}.matches('^/[A-Za-z0-9]{7}$') && !path('/graphql'))`
 	handle @tracking {
 		reverse_proxy api:8080
 	}
