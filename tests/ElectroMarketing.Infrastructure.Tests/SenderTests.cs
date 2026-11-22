@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -43,6 +44,7 @@ public sealed class SenderTests
         headers["List-Unsubscribe-Post"]![0]!.GetValue<string>().ShouldBe("List-Unsubscribe=One-Click");
 
         var bob = messages.Single(m => m!["To"]![0]!["Address"]!.GetValue<string>() == "bob@x.de")!;
+        bob["To"]![0]!["Name"]!.GetValue<string>().ShouldBe("Bob  Bcc: x@evil.test");
         bob["Subject"]!.GetValue<string>().ShouldBe("Hi Bob  Bcc: x@evil.test");
         (bob["Bcc"] as JsonArray ?? []).ShouldBeEmpty();
     }
@@ -74,6 +76,33 @@ public sealed class SenderTests
     [Fact]
     public void Without_twilio_settings_sms_are_only_logged()
     {
+        var services = CampaignServices(isDevelopment: true);
+
+        services.GetRequiredService<ISmsSender>().ShouldBeOfType<LoggingSmsSender>();
+        services.GetRequiredService<CampaignContent>().Link("Ab3dE5g").ShouldBe("https://em.test/Ab3dE5g");
+    }
+
+    [Fact]
+    public async Task Outside_development_without_twilio_sms_fail()
+    {
+        var sender = CampaignServices(isDevelopment: false).GetRequiredService<ISmsSender>();
+
+        sender.ShouldBeOfType<UnconfiguredSmsSender>();
+        (await Should.ThrowAsync<InvalidOperationException>(() => sender.SendAsync("+491701234567", "x", Ct))).Message.ShouldBe("SMS is not configured (Twilio).");
+    }
+
+    [Fact]
+    public void Smtp_credentials_require_starttls()
+    {
+        var o = new SmtpOptions { Host = "h", From = "a@b.de", Username = "u" };
+
+        Validator.TryValidateObject(o, new ValidationContext(o), [], validateAllProperties: true).ShouldBeFalse();
+        o.UseStartTls = true;
+        Validator.TryValidateObject(o, new ValidationContext(o), [], validateAllProperties: true).ShouldBeTrue();
+    }
+
+    private static ServiceProvider CampaignServices(bool isDevelopment)
+    {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Smtp:Host"] = "localhost",
@@ -82,10 +111,7 @@ public sealed class SenderTests
             ["Tracking:LandingBaseUrl"] = "https://app.test",
             ["Campaigns:SenderLine"] = "EM · Street 1 · 12345 Town",
         }).Build();
-        var services = new ServiceCollection().AddSingleton(typeof(ILogger<>), typeof(NullLogger<>)).AddCampaignSending(configuration).BuildServiceProvider();
-
-        services.GetRequiredService<ISmsSender>().ShouldBeOfType<LoggingSmsSender>();
-        services.GetRequiredService<CampaignContent>().Link("Ab3dE5g").ShouldBe("https://em.test/Ab3dE5g");
+        return new ServiceCollection().AddSingleton(typeof(ILogger<>), typeof(NullLogger<>)).AddCampaignSending(configuration, isDevelopment).BuildServiceProvider();
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> respond) : HttpMessageHandler

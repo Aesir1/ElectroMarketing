@@ -12,7 +12,7 @@ builder.Configuration.AddJsonFile("appsettings.User.json", optional: true, reloa
 builder.AddServiceDefaults();
 builder.Services.AddApplication(builder.Configuration);
 builder.AddInfrastructure();
-builder.Services.AddCampaignSending(builder.Configuration);
+builder.Services.AddCampaignSending(builder.Configuration, builder.Environment.IsDevelopment());
 builder.AddMessaging();
 builder.AddElectroMarketingAuth();
 builder.Services.AddApi(builder.Configuration, builder.Environment.IsDevelopment());

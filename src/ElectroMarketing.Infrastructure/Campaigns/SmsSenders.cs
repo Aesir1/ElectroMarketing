@@ -37,6 +37,13 @@ public sealed class TwilioSmsSender(HttpClient http, IOptions<TwilioOptions> opt
     }
 }
 
+/// <summary>Outside development without Twilio: fail loudly instead of logging phone numbers and tracking links.</summary>
+public sealed class UnconfiguredSmsSender : ISmsSender
+{
+    public Task SendAsync(string toE164, string text, CancellationToken ct) =>
+        throw new InvalidOperationException("SMS is not configured (Twilio).");
+}
+
 /// <summary>Used when no Twilio account is configured (development): the SMS only goes to the log.</summary>
 public sealed class LoggingSmsSender(ILogger<LoggingSmsSender> logger) : ISmsSender
 {

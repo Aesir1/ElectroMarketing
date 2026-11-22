@@ -8,7 +8,7 @@ namespace ElectroMarketing.Infrastructure.Campaigns;
 public static class CampaignSetup
 {
     /// <summary>Senders and campaign options. Api only: DbUtils never sends and has no SMTP settings.</summary>
-    public static IServiceCollection AddCampaignSending(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddCampaignSending(this IServiceCollection services, IConfiguration configuration, bool isDevelopment)
     {
         services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.Section)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<TrackingOptions>().Bind(configuration.GetSection(TrackingOptions.Section)).ValidateDataAnnotations().ValidateOnStart();
@@ -20,7 +20,14 @@ public static class CampaignSetup
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
         if (string.IsNullOrEmpty(configuration[$"{TwilioOptions.Section}:{nameof(TwilioOptions.AccountSid)}"]))
         {
-            services.AddSingleton<ISmsSender, LoggingSmsSender>();
+            if (isDevelopment)
+            {
+                services.AddSingleton<ISmsSender, LoggingSmsSender>();
+            }
+            else
+            {
+                services.AddSingleton<ISmsSender, UnconfiguredSmsSender>();
+            }
         }
         else
         {

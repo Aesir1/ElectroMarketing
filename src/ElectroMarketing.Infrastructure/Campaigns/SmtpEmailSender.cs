@@ -7,7 +7,7 @@ using MimeKit;
 
 namespace ElectroMarketing.Infrastructure.Campaigns;
 
-public sealed class SmtpOptions
+public sealed class SmtpOptions : IValidatableObject
 {
     public const string Section = "Smtp";
 
@@ -28,6 +28,14 @@ public sealed class SmtpOptions
     public string From { get; set; } = string.Empty;
 
     public string? FromName { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!string.IsNullOrEmpty(Username) && !UseStartTls)
+        {
+            yield return new ValidationResult("UseStartTls must be true when Username is set (credentials must not travel in clear text).", [nameof(UseStartTls)]);
+        }
+    }
 }
 
 /// <summary>HTML mail with RFC 8058 one-click unsubscribe headers (required by Gmail/Yahoo for bulk senders).</summary>
