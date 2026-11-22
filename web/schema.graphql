@@ -99,6 +99,46 @@ type Query {
   categories: [Category!]!
     @authorize(policy: "contacts.read")
     @cost(weight: "10")
+  contactLists(
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    order: [ContactListSortInput!] @cost(weight: "10")
+  ): ContactListsConnection
+    @authorize(policy: "contacts.read")
+    @listSize(
+      assumedSize: 100
+      slicingArguments: ["first", "last"]
+      slicingArgumentDefaultValue: 10
+      sizedFields: ["edges", "nodes"]
+      requireOneSlicingArgument: false
+    )
+    @cost(weight: "10")
+  contactListMembers(
+    listId: UUID!
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+  ): ContactListMembersConnection
+    @authorize(policy: "contacts.read")
+    @listSize(
+      assumedSize: 100
+      slicingArguments: ["first", "last"]
+      slicingArgumentDefaultValue: 10
+      sizedFields: ["edges", "nodes"]
+      requireOneSlicingArgument: false
+    )
+    @cost(weight: "10")
   queues: [QueueInfo!]! @authorize(policy: "queues.manage") @cost(weight: "10")
   "The signed-in user, so the UI can show only what the caller may use."
   viewer: Viewer!
@@ -133,6 +173,25 @@ type Mutation {
   startImport(input: StartImportInput!): StartImportPayload!
     @authorize(policy: "imports.write")
     @cost(weight: "10")
+  createContactList(input: CreateContactListInput!): CreateContactListPayload!
+    @authorize(policy: "lists.write")
+    @cost(weight: "10")
+  createContactListFromBatch(input: CreateContactListFromBatchInput!): CreateContactListFromBatchPayload!
+    @authorize(policy: "lists.write")
+    @cost(weight: "10")
+  renameContactList(input: RenameContactListInput!): RenameContactListPayload!
+    @authorize(policy: "lists.write")
+    @cost(weight: "10")
+  deleteContactList(input: DeleteContactListInput!): DeleteContactListPayload!
+    @authorize(policy: "lists.write")
+    @cost(weight: "10")
+  "Pass contactIds (selection) or filter (all matching); returns how many were added."
+  addToContactList(input: AddToContactListInput!): AddToContactListPayload!
+    @authorize(policy: "lists.write")
+    @cost(weight: "10")
+  removeFromContactList(input: RemoveFromContactListInput!): RemoveFromContactListPayload!
+    @authorize(policy: "lists.write")
+    @cost(weight: "10")
   "Declares a durable queue bound to domain-events with its own dead-letter queue."
   declareQueue(input: DeclareQueueInput!): DeclareQueuePayload!
     @authorize(policy: "queues.manage")
@@ -144,6 +203,11 @@ type Mutation {
   deleteQueue(input: DeleteQueueInput!): DeleteQueuePayload!
     @authorize(policy: "queues.manage")
     @cost(weight: "10")
+}
+
+type AddToContactListPayload {
+  count: Int
+  errors: [AddToContactListError!]
 }
 
 type Category {
@@ -234,6 +298,68 @@ type ContactImport {
   changes: [FieldChange!]!
 }
 
+"A named working set of contacts, built from an import lot and/or picked by hand."
+type ContactList {
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedInt!
+  id: UUID!
+  memberCount: Int! @cost(weight: "10")
+  name: String!
+  "The import lot the list was created from, if any."
+  sourceBatchId: UUID
+  createdAtUtc: DateTime!
+  createdBy: String
+  updatedAtUtc: DateTime
+  updatedBy: String
+}
+
+type ContactListMember {
+  contactListId: UUID!
+  contactId: UUID!
+  contact: Contact
+  addedAtUtc: DateTime!
+}
+
+"A connection to a list of items."
+type ContactListMembersConnection {
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "A list of edges."
+  edges: [ContactListMembersEdge!]
+  "A flattened list of the nodes."
+  nodes: [ContactListMember!]
+  "Identifies the total count of items in the connection."
+  totalCount: Int! @cost(weight: "10")
+}
+
+"An edge in a connection."
+type ContactListMembersEdge {
+  "A cursor for use in pagination."
+  cursor: String!
+  "The item at the end of the edge."
+  node: ContactListMember!
+}
+
+"A connection to a list of items."
+type ContactListsConnection {
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "A list of edges."
+  edges: [ContactListsEdge!]
+  "A flattened list of the nodes."
+  nodes: [ContactList!]
+  "Identifies the total count of items in the connection."
+  totalCount: Int! @cost(weight: "10")
+}
+
+"An edge in a connection."
+type ContactListsEdge {
+  "A cursor for use in pagination."
+  cursor: String!
+  "The item at the end of the edge."
+  node: ContactList!
+}
+
 "A connection to a list of items."
 type ContactsConnection {
   "Information to aid in pagination."
@@ -259,6 +385,16 @@ type CreateCategoryPayload {
   errors: [CreateCategoryError!]
 }
 
+type CreateContactListFromBatchPayload {
+  contactList: ContactList
+  errors: [CreateContactListFromBatchError!]
+}
+
+type CreateContactListPayload {
+  contactList: ContactList
+  errors: [CreateContactListError!]
+}
+
 type CsvPreview {
   delimiter: String!
   encoding: String!
@@ -269,6 +405,11 @@ type CsvPreview {
 
 type DeclareQueuePayload {
   string: String
+}
+
+type DeleteContactListPayload {
+  uuid: UUID
+  errors: [DeleteContactListError!]
 }
 
 type DeleteDocumentPayload {
@@ -427,6 +568,16 @@ type QueueInfo {
   name: String!
 }
 
+type RemoveFromContactListPayload {
+  count: Int
+  errors: [RemoveFromContactListError!]
+}
+
+type RenameContactListPayload {
+  contactList: ContactList
+  errors: [RenameContactListError!]
+}
+
 type RenameDocumentPayload {
   document: Document
   errors: [RenameDocumentError!]
@@ -464,13 +615,25 @@ interface Error {
   message: String!
 }
 
+union AddToContactListError = NotFoundError | ValidationError
+
 union ConfirmDocumentUploadError = NotFoundError | ConflictError
 
 union CreateCategoryError = ValidationError | ConflictError
 
+union CreateContactListError = ValidationError
+
+union CreateContactListFromBatchError = NotFoundError | ValidationError
+
+union DeleteContactListError = NotFoundError
+
 union DeleteDocumentError = NotFoundError
 
 union PreviewImportError = NotFoundError
+
+union RemoveFromContactListError = NotFoundError
+
+union RenameContactListError = NotFoundError | ValidationError
 
 union RenameDocumentError = NotFoundError | ValidationError
 
@@ -479,6 +642,12 @@ union ReplaceDocumentContentError = NotFoundError | ValidationError
 union RequestDocumentUploadError = ValidationError | ForbiddenError
 
 union StartImportError = NotFoundError | ValidationError
+
+input AddToContactListInput {
+  listId: UUID!
+  contactIds: [UUID!]
+  filter: ContactFilterInput
+}
 
 input BooleanOperationFilterInput {
   eq: Boolean @cost(weight: "10")
@@ -563,6 +732,20 @@ input ContactFilterInput {
   obtainedTo: LocalDate
 }
 
+"A named working set of contacts, built from an import lot and/or picked by hand."
+input ContactListSortInput {
+  name: SortEnumType @cost(weight: "10")
+  "The import lot the list was created from, if any."
+  sourceBatchId: SortEnumType @cost(weight: "10")
+  id: SortEnumType @cost(weight: "10")
+  createdAtUtc: SortEnumType @cost(weight: "10")
+  createdBy: SortEnumType @cost(weight: "10")
+  updatedAtUtc: SortEnumType @cost(weight: "10")
+  updatedBy: SortEnumType @cost(weight: "10")
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: SortEnumType @cost(weight: "10")
+}
+
 "One person or company. Only imports change contact data, through ContactMerger."
 input ContactSortInput {
   name: SortEnumType @cost(weight: "10")
@@ -592,6 +775,15 @@ input CreateCategoryInput {
   name: String!
 }
 
+input CreateContactListFromBatchInput {
+  batchId: UUID!
+  name: String!
+}
+
+input CreateContactListInput {
+  name: String!
+}
+
 input DateTimeOperationFilterInput {
   eq: DateTime @cost(weight: "10")
   neq: DateTime @cost(weight: "10")
@@ -610,6 +802,10 @@ input DateTimeOperationFilterInput {
 input DeclareQueueInput {
   name: String!
   routingKey: String!
+}
+
+input DeleteContactListInput {
+  id: UUID!
 }
 
 input DeleteDocumentInput {
@@ -778,6 +974,16 @@ input PreviewImportInput {
 }
 
 input PurgeQueueInput {
+  name: String!
+}
+
+input RemoveFromContactListInput {
+  listId: UUID!
+  contactIds: [UUID!]!
+}
+
+input RenameContactListInput {
+  id: UUID!
   name: String!
 }
 

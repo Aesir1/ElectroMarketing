@@ -1,5 +1,6 @@
 using ElectroMarketing.Domain.Contacts;
 using ElectroMarketing.Domain.Documents;
+using ElectroMarketing.Domain.Lists;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -91,5 +92,25 @@ internal sealed class ContactImportConfiguration : IEntityTypeConfiguration<Cont
         b.HasOne(i => i.ImportBatch).WithMany().HasForeignKey(i => i.ImportBatchId).OnDelete(DeleteBehavior.Cascade);
         b.OwnsMany(i => i.Changes, o => o.ToJson());
         b.HasIndex(i => i.ImportBatchId);
+    }
+}
+
+internal sealed class ContactListConfiguration : IEntityTypeConfiguration<ContactList>
+{
+    public void Configure(EntityTypeBuilder<ContactList> b)
+    {
+        b.Property(l => l.Name).HasMaxLength(200);
+        b.HasOne<ImportBatch>().WithMany().HasForeignKey(l => l.SourceBatchId).OnDelete(DeleteBehavior.SetNull);
+        b.HasMany(l => l.Members).WithOne().HasForeignKey(m => m.ContactListId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class ContactListMemberConfiguration : IEntityTypeConfiguration<ContactListMember>
+{
+    public void Configure(EntityTypeBuilder<ContactListMember> b)
+    {
+        b.HasKey(m => new { m.ContactListId, m.ContactId });
+        b.HasOne(m => m.Contact).WithMany().HasForeignKey(m => m.ContactId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(m => m.ContactId);
     }
 }

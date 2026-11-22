@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using ElectroMarketing.Domain.Abstractions;
 using ElectroMarketing.Domain.Contacts;
 using ElectroMarketing.Domain.Documents;
+using ElectroMarketing.Domain.Lists;
 using Microsoft.EntityFrameworkCore;
 
 namespace ElectroMarketing.Infrastructure.Persistence;
@@ -21,6 +22,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
 
     public DbSet<ContactImport> ContactImports => Set<ContactImport>();
+
+    public DbSet<ContactList> ContactLists => Set<ContactList>();
+
+    public DbSet<ContactListMember> ContactListMembers => Set<ContactListMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

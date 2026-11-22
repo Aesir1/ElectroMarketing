@@ -1,6 +1,7 @@
 using ElectroMarketing.Application.Abstractions;
 using ElectroMarketing.Application.Documents;
 using ElectroMarketing.Application.Imports;
+using ElectroMarketing.Application.Lists;
 using ElectroMarketing.Domain.Contacts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<DocumentService>();
         services.AddScoped<ImportService>();
         services.AddScoped<CategoryService>();
+        services.AddScoped<ListService>();
         services.AddScoped<IMessageHandler<ImportBatchChanged>, ImportRequestedHandler>();
         return services;
     }

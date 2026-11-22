@@ -320,6 +320,64 @@ namespace ElectroMarketing.Infrastructure.Persistence.Migrations
                     b.ToTable("Documents");
                 });
 
+            modelBuilder.Entity("ElectroMarketing.Domain.Lists.ContactList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<Guid?>("SourceBatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceBatchId");
+
+                    b.ToTable("ContactLists");
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Lists.ContactListMember", b =>
+                {
+                    b.Property<Guid>("ContactListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AddedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ContactListId", "ContactId");
+
+                    b.HasIndex("ContactId");
+
+                    b.ToTable("ContactListMembers");
+                });
+
             modelBuilder.Entity("ElectroMarketing.Infrastructure.Persistence.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -499,9 +557,39 @@ namespace ElectroMarketing.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ElectroMarketing.Domain.Lists.ContactList", b =>
+                {
+                    b.HasOne("ElectroMarketing.Domain.Contacts.ImportBatch", null)
+                        .WithMany()
+                        .HasForeignKey("SourceBatchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Lists.ContactListMember", b =>
+                {
+                    b.HasOne("ElectroMarketing.Domain.Contacts.Contact", "Contact")
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ElectroMarketing.Domain.Lists.ContactList", null)
+                        .WithMany("Members")
+                        .HasForeignKey("ContactListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Contact");
+                });
+
             modelBuilder.Entity("ElectroMarketing.Domain.Contacts.Contact", b =>
                 {
                     b.Navigation("Imports");
+                });
+
+            modelBuilder.Entity("ElectroMarketing.Domain.Lists.ContactList", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

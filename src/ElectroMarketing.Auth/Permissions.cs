@@ -35,6 +35,11 @@ public static class Permissions
         public const string Write = "imports.write";
     }
 
+    public static class Lists
+    {
+        public const string Write = "lists.write";
+    }
+
     public static class Queues
     {
         public const string Manage = "queues.manage";
