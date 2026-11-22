@@ -12,6 +12,7 @@ public static class DependencyInjection
         _ = configuration;
         services.AddHostedService<BucketInitializer>();
         services.AddHostedService<ContactImportConsumer>();
+        services.AddHostedService<CampaignDispatcher>();
         services.AddElectroMarketingGraphQl(isDevelopment);
         return services;
     }

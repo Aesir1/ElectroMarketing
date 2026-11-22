@@ -1,6 +1,7 @@
 using ElectroMarketing.Application.Abstractions;
 using ElectroMarketing.Application.Documents;
 using ElectroMarketing.Auth;
+using ElectroMarketing.Domain.Campaigns;
 using ElectroMarketing.Domain.Documents;
 using ElectroMarketing.Domain.Exceptions;
 using ElectroMarketing.Infrastructure.Storage;
@@ -27,8 +28,16 @@ public static class FileEndpoints
 
         // Logo and login background: public by design, but only the branding bucket and only reads.
         app.MapGet("/branding/{**key}", BrandingAsync).AllowAnonymous();
+
+        // Merged letters PDF of a campaign; the web BFF forwards /api/campaigns/{id}/letters here.
+        app.MapGet("/campaigns/{id:guid}/letters", LettersAsync).RequireAuthorization(Permissions.Campaigns.Read);
         return app;
     }
+
+    private static async Task<IResult> LettersAsync(Guid id, IObjectStorage storage, CancellationToken ct) =>
+        await storage.GetAsync(Document.Bucket, Campaign.LettersKey(id), ct) is { } pdf
+            ? Results.Stream(pdf.Content, "application/pdf", $"letters-{id}.pdf")
+            : Results.NotFound();
 
     private static async Task<IResult> UploadAsync(Guid id, HttpRequest request, DocumentService service, CancellationToken ct)
     {

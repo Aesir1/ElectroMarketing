@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<CategoryService>();
         services.AddScoped<ListService>();
         services.AddScoped<CampaignService>();
+        services.AddScoped<CampaignSender>();
         services.AddScoped<IMessageHandler<ImportBatchChanged>, ImportRequestedHandler>();
         return services;
     }
