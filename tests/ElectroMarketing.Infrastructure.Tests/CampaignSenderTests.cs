@@ -16,6 +16,7 @@ public sealed class CampaignSenderTests(PostgresFixture db) : IAsyncLifetime
     private readonly ILetterRenderer letters = Substitute.For<ILetterRenderer>();
     private readonly IObjectStorage storage = Substitute.For<IObjectStorage>();
     private Guid campaignId;
+    private Guid listId;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -30,6 +31,7 @@ public sealed class CampaignSenderTests(PostgresFixture db) : IAsyncLifetime
             new() { Name = "Ann", Email = "ann@x.de", PhoneE164 = "+491701111111", Street = "A 1", City = "Köln" },
             new() { Name = "Bob", Email = "bob@x.de", PhoneE164 = "+491702222222", Street = "B 2", City = "Bonn" },
         ];
+        listId = list.Id;
         ctx.AddRange(list);
         ctx.Contacts.AddRange(contacts);
         ctx.ContactListMembers.AddRange(contacts.Select(c => new ContactListMember { ContactListId = list.Id, ContactId = c.Id }));
@@ -83,8 +85,12 @@ public sealed class CampaignSenderTests(PostgresFixture db) : IAsyncLifetime
     {
         await using (var ctx = db.Create())
         {
-            var first = await ctx.CampaignMessages.Where(m => m.Channel == Channel.Email).OrderBy(m => m.Id).FirstAsync(Ct);
-            first.Status = MessageStatus.Sent;
+            foreach (var channel in new[] { Channel.Email, Channel.Sms })
+            {
+                var first = await ctx.CampaignMessages.Where(m => m.Channel == channel).OrderBy(m => m.Id).FirstAsync(Ct);
+                first.Status = MessageStatus.Sent;
+            }
+
             await ctx.SaveChangesAsync(Ct);
         }
 
@@ -95,5 +101,31 @@ public sealed class CampaignSenderTests(PostgresFixture db) : IAsyncLifetime
         }
 
         await email.Received(1).SendAsync(Arg.Any<EmailMessage>(), Arg.Any<CancellationToken>());
+        await sms.Received(1).SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Letters_failure_fails_the_post_messages_and_does_not_block_other_campaigns()
+    {
+        letters.Render(Arg.Any<IReadOnlyList<Letter>>()).Returns(_ => throw new InvalidOperationException("render boom"));
+        Guid second;
+        await using (var ctx = db.Create())
+        {
+            var service = new CampaignService(new Repository<Campaign, Guid>(ctx), new CampaignStore(ctx), TimeProvider.System);
+            var created = await service.CreateAsync(new CampaignDto("D", listId, true, false, false, "Hi", "<p>x</p>", null, null, null, null), Ct);
+            second = (await service.StartAsync(created.Id, Ct)).Id;
+        }
+
+        await using (var ctx = db.Create())
+        {
+            await Sender(ctx).SendPendingAsync(Ct);
+        }
+
+        await using var read = db.Create();
+        var posts = await read.CampaignMessages.Where(m => m.CampaignId == campaignId && m.Channel == Channel.Post).ToListAsync(Ct);
+        posts.ShouldAllBe(m => m.Status == MessageStatus.Failed && m.Error == "render boom");
+        (await read.Campaigns.SingleAsync(c => c.Id == campaignId, Ct)).LettersReady.ShouldBeFalse();
+        (await read.Campaigns.SingleAsync(c => c.Id == second, Ct)).Status.ShouldBe(CampaignStatus.Sent);
+        (await read.CampaignMessages.CountAsync(m => m.CampaignId == second && m.Status == MessageStatus.Sent, Ct)).ShouldBe(2);
     }
 }

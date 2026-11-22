@@ -30,12 +30,13 @@ public static class FileEndpoints
         app.MapGet("/branding/{**key}", BrandingAsync).AllowAnonymous();
 
         // Merged letters PDF of a campaign; the web BFF forwards /api/campaigns/{id}/letters here.
-        app.MapGet("/campaigns/{id:guid}/letters", LettersAsync).RequireAuthorization(Permissions.Campaigns.Read);
+        app.MapGet("/campaigns/{id:guid}/letters", LettersAsync).RequireAuthorization(Permissions.Campaigns.Read, Permissions.Contacts.Read);
         return app;
     }
 
-    private static async Task<IResult> LettersAsync(Guid id, IObjectStorage storage, CancellationToken ct) =>
-        await storage.GetAsync(Document.Bucket, Campaign.LettersKey(id), ct) is { } pdf
+    private static async Task<IResult> LettersAsync(Guid id, IRepository<Campaign, Guid> campaigns, IObjectStorage storage, CancellationToken ct) =>
+        await campaigns.GetByIdAsync(id, ct) is { LettersReady: true }
+        && await storage.GetAsync(Document.Bucket, Campaign.LettersKey(id), ct) is { } pdf
             ? Results.Stream(pdf.Content, "application/pdf", $"letters-{id}.pdf")
             : Results.NotFound();
 

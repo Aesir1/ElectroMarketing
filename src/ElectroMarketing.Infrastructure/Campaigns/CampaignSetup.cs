@@ -1,6 +1,7 @@
 using ElectroMarketing.Application.Campaigns;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 
 namespace ElectroMarketing.Infrastructure.Campaigns;
@@ -32,7 +33,12 @@ public static class CampaignSetup
         }
         else
         {
-            services.AddHttpClient<ISmsSender, TwilioSmsSender>();
+            // ponytail: the Twilio POST is not idempotent, so the default handler is swapped for one that keeps the timeouts but never retries POST.
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is experimental; the alternative is two stacked handlers
+            services.AddHttpClient<ISmsSender, TwilioSmsSender>()
+                .RemoveAllResilienceHandlers()
+                .AddStandardResilienceHandler(o => o.Retry.DisableForUnsafeHttpMethods());
+#pragma warning restore EXTEXP0001
         }
 
         return services;

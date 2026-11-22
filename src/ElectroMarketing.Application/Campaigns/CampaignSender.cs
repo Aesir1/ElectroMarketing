@@ -21,13 +21,21 @@ public sealed class CampaignSender(
     TimeProvider time,
     ILogger<CampaignSender> logger)
 {
-    private const int ChunkSize = 100;
+    private const int ChunkSize = 1;
 
+    // ponytail: campaigns run one after another; a long one delays the rest. Run them in parallel if that matters.
     public async Task SendPendingAsync(CancellationToken ct)
     {
         foreach (var campaign in await campaigns.ListAsync(c => c.Status == CampaignStatus.Sending, ct))
         {
-            await RunAsync(campaign, ct);
+            try
+            {
+                await RunAsync(campaign, ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogError(ex, "Campaign {CampaignId} failed; continuing with the next", campaign.Id);
+            }
         }
     }
 
@@ -42,7 +50,8 @@ public sealed class CampaignSender(
         await campaigns.UpdateAsync(campaign, ct);
     }
 
-    // ponytail: a crash between sending and saving a chunk re-sends up to ChunkSize messages; save per message if that matters.
+    // ponytail: status is saved after every message, so a crash re-sends at most the single in-flight message.
+    // No SMTP retry: an outage marks the remaining e-mails Failed.
     private async Task SendAsync(Guid campaignId, Channel channel, double perSecond, Func<CampaignMessage, CancellationToken, Task> send, CancellationToken ct)
     {
         var pause = TimeSpan.FromSeconds(1 / perSecond);
@@ -56,17 +65,17 @@ public sealed class CampaignSender(
                     message.Status = MessageStatus.Sent;
                     message.SentAtUtc = time.GetUtcNow();
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
                     message.Status = MessageStatus.Failed;
                     message.Error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
                     logger.LogWarning(ex, "{Channel} message {MessageId} failed", channel, message.Id);
                 }
 
+                // Save per message; the store detaches tracked messages, hence a chunk of one.
+                await store.SaveAsync(CancellationToken.None);
                 await Task.Delay(pause, time, ct);
             }
-
-            await store.SaveAsync(ct);
         }
     }
 
@@ -79,20 +88,36 @@ public sealed class CampaignSender(
             return;
         }
 
-        var pdf = letters.Render(queued.Select(m => content.Letter(campaign, m.Contact!, m.Token)).ToList());
-        using (var stream = new MemoryStream(pdf))
+        // ponytail: every letter is rendered in memory at once; render in batches of pages if campaigns get huge.
+        try
         {
-            await storage.PutAsync(Document.Bucket, Campaign.LettersKey(campaign.Id), stream, "application/pdf", ct);
+            var pdf = letters.Render(queued.Select(m => content.Letter(campaign, m.Contact!, m.Token)).ToList());
+            using (var stream = new MemoryStream(pdf))
+            {
+                await storage.PutAsync(Document.Bucket, Campaign.LettersKey(campaign.Id), stream, "application/pdf", ct);
+            }
+
+            var now = time.GetUtcNow();
+            foreach (var message in queued)
+            {
+                message.Status = MessageStatus.Sent;
+                message.SentAtUtc = now;
+            }
+
+            campaign.LettersReady = true;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogError(ex, "Letters of campaign {CampaignId} failed", campaign.Id);
+            var error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
+            foreach (var message in queued)
+            {
+                message.Status = MessageStatus.Failed;
+                message.Error = error;
+            }
         }
 
-        var now = time.GetUtcNow();
-        foreach (var message in queued)
-        {
-            message.Status = MessageStatus.Sent;
-            message.SentAtUtc = now;
-        }
-
-        campaign.LettersReady = true;
-        await store.SaveAsync(ct);
+        // The campaign is loaded untracked: UpdateAsync saves it together with the tracked messages.
+        await campaigns.UpdateAsync(campaign, ct);
     }
 }
