@@ -71,6 +71,21 @@ public sealed class ContactSearchTests(PostgresFixture db) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Contact_in_two_batches_appears_once_and_date_bound_is_inclusive()
+    {
+        await using (var ctx = db.Create())
+        {
+            var jorg = await ctx.Contacts.SingleAsync(c => c.City == "Köln" && c.PhoneE164 != null, Ct);
+            ctx.ContactImports.Add(new ContactImport { ContactId = jorg.Id, ImportBatchId = second.Id, RowNumber = 3, Change = ContactChange.Updated });
+            await ctx.SaveChangesAsync(Ct);
+        }
+
+        (await Names(new ContactFilter(Search: "müller", BatchIds: [first.Id, second.Id]))).ShouldBe(["Jörg Müller"]);
+        (await Names(new ContactFilter(ObtainedTo: new DateOnly(2026, 3, 1)))).ShouldBe(["Jörg Müller"]);
+        (await Names(new ContactFilter(ObtainedTo: new DateOnly(2026, 2, 28)))).ShouldBe([]);
+    }
+
+    [Fact]
     public void Terms_are_lower_case_and_phone_like_terms_become_digits() =>
         ContactSearch.Terms("  Köln  0170-1234 (030) KÖLN ").ShouldBe(["köln", "01701234", "030"]);
 }
