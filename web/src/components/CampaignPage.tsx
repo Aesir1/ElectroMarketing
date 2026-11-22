@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { graphql } from "@/gql";
 import type { CampaignDtoInput, CampaignEditorQuery, CampaignMessagesQuery } from "@/gql/graphql";
 import { execute } from "@/lib/graphql";
@@ -58,6 +58,23 @@ const CampaignMessagesDocument = graphql(`
           phone
         }
       }
+    }
+  }
+`);
+
+const CampaignCountsDocument = graphql(`
+  query CampaignCounts($id: UUID!) {
+    queued: campaignMessages(campaignId: $id, where: { status: { eq: QUEUED } }) {
+      totalCount
+    }
+    sent: campaignMessages(campaignId: $id, where: { status: { eq: SENT } }) {
+      totalCount
+    }
+    failed: campaignMessages(campaignId: $id, where: { status: { eq: FAILED } }) {
+      totalCount
+    }
+    skipped: campaignMessages(campaignId: $id, where: { status: { eq: SKIPPED } }) {
+      totalCount
     }
   }
 `);
@@ -134,17 +151,36 @@ export function CampaignPage({ id }: { id: string }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [lists, setLists] = useState<{ id: string; name: string; memberCount: number }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [next, setNext] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const req = useRef(0); // id of the newest fetch; older responses are dropped
 
   const load = useCallback(async () => {
+    const mine = ++req.current;
     try {
       const d = await execute(CampaignEditorDocument, { id });
+      if (mine !== req.current) return;
       setCampaign(d.campaign ?? null);
       setLists(d.contactLists?.nodes ?? []);
       if (d.campaign && d.campaign.status !== "DRAFT") {
-        const m = await execute(CampaignMessagesDocument, { id, after: null });
+        const [m, c] = await Promise.all([
+          execute(CampaignMessagesDocument, { id, after: null }),
+          execute(CampaignCountsDocument, { id }),
+        ]);
+        if (mine !== req.current) return;
         setMessages(m.campaignMessages?.nodes ?? []);
+        setNext(m.campaignMessages?.pageInfo.hasNextPage ? (m.campaignMessages.pageInfo.endCursor ?? null) : null);
+        setCounts({
+          queued: c.queued?.totalCount ?? 0,
+          sent: c.sent?.totalCount ?? 0,
+          failed: c.failed?.totalCount ?? 0,
+          skipped: c.skipped?.totalCount ?? 0,
+        });
       }
+      setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -169,9 +205,27 @@ export function CampaignPage({ id }: { id: string }) {
   const input = () => ({ id, campaign: Object.fromEntries(editable.map((k) => [k, campaign[k] ?? null])) as CampaignDtoInput });
 
   async function save(): Promise<boolean> {
+    setSaved(false);
     const { updateCampaign } = await execute(SaveCampaignDocument, { input: input() });
     setError(messageOf(updateCampaign.errors));
-    return !updateCampaign.errors?.length;
+    const ok = !updateCampaign.errors?.length;
+    setSaved(ok);
+    return ok;
+  }
+
+  async function loadMore() {
+    const mine = ++req.current;
+    setLoadingMore(true);
+    try {
+      const m = await execute(CampaignMessagesDocument, { id, after: next });
+      if (mine !== req.current) return;
+      setMessages((prev) => [...prev, ...(m.campaignMessages?.nodes ?? [])]);
+      setNext(m.campaignMessages?.pageInfo.hasNextPage ? (m.campaignMessages.pageInfo.endCursor ?? null) : null);
+    } catch (e) {
+      if (mine === req.current) setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   async function start() {
@@ -188,11 +242,6 @@ export function CampaignPage({ id }: { id: string }) {
   }
 
   if (campaign.status !== "DRAFT") {
-    const counts = messages.reduce<Record<string, number>>((acc, m) => {
-      const key = `${m.channel.toLowerCase()} ${m.status.toLowerCase()}`;
-      acc[key] = (acc[key] ?? 0) + 1;
-      return acc;
-    }, {});
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold">{campaign.name}</h1>
@@ -207,6 +256,11 @@ export function CampaignPage({ id }: { id: string }) {
             </li>
           ))}
         </ul>
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
         {campaign.lettersReady && (
           <a href={`/api/campaigns/${id}/letters`} className="underline">
             Download letters (PDF)
@@ -225,7 +279,7 @@ export function CampaignPage({ id }: { id: string }) {
           <tbody>
             {messages.map((m) => (
               <tr key={m.id} className="border-t border-border">
-                <td className="px-2 py-1">{m.contact?.name ?? m.contact?.email ?? m.contact?.phone}</td>
+                <td className="px-2 py-1">{m.contact ? (m.contact.name ?? m.contact.email ?? m.contact.phone) : "—"}</td>
                 <td className="px-2 py-1">{m.channel.toLowerCase()}</td>
                 <td className="px-2 py-1">{m.status.toLowerCase()}</td>
                 <td className="px-2 py-1">{m.sentAtUtc && new Date(m.sentAtUtc).toLocaleString()}</td>
@@ -234,6 +288,11 @@ export function CampaignPage({ id }: { id: string }) {
             ))}
           </tbody>
         </table>
+        {next && (
+          <button type="button" disabled={loadingMore} onClick={loadMore} className="rounded-md border border-border px-4 py-1.5 disabled:opacity-50">
+            Load more
+          </button>
+        )}
       </div>
     );
   }
@@ -305,6 +364,11 @@ export function CampaignPage({ id }: { id: string }) {
       {error && (
         <p role="alert" className="text-sm text-danger">
           {error}
+        </p>
+      )}
+      {saved && !error && (
+        <p role="status" className="text-sm">
+          Draft saved.
         </p>
       )}
       <div className="flex gap-2">

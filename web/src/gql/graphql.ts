@@ -179,6 +179,13 @@ export type CampaignMessagesQueryVariables = Exact<{
 
 export type CampaignMessagesQuery = { campaignMessages: { totalCount: number, pageInfo: { hasNextPage: boolean, endCursor: string | null }, nodes: Array<{ id: string, channel: Channel, status: MessageStatus, token: string, sentAtUtc: string | null, error: string | null, contact: { id: string, name: string | null, email: string | null, phone: string | null } | null }> | null } | null };
 
+export type CampaignCountsQueryVariables = Exact<{
+  id: string;
+}>;
+
+
+export type CampaignCountsQuery = { queued: { totalCount: number } | null, sent: { totalCount: number } | null, failed: { totalCount: number } | null, skipped: { totalCount: number } | null };
+
 export type SaveCampaignMutationVariables = Exact<{
   input: UpdateCampaignInput;
 }>;
@@ -508,6 +515,22 @@ export const CampaignMessagesDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<CampaignMessagesQuery, CampaignMessagesQueryVariables>;
+export const CampaignCountsDocument = new TypedDocumentString(`
+    query CampaignCounts($id: UUID!) {
+  queued: campaignMessages(campaignId: $id, where: { status: { eq: QUEUED } }) {
+    totalCount
+  }
+  sent: campaignMessages(campaignId: $id, where: { status: { eq: SENT } }) {
+    totalCount
+  }
+  failed: campaignMessages(campaignId: $id, where: { status: { eq: FAILED } }) {
+    totalCount
+  }
+  skipped: campaignMessages(campaignId: $id, where: { status: { eq: SKIPPED } }) {
+    totalCount
+  }
+}
+    `) as unknown as TypedDocumentString<CampaignCountsQuery, CampaignCountsQueryVariables>;
 export const SaveCampaignDocument = new TypedDocumentString(`
     mutation SaveCampaign($input: UpdateCampaignInput!) {
   updateCampaign(input: $input) {

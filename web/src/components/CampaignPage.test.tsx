@@ -47,4 +47,30 @@ describe("CampaignPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save and start" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("No contact in the list can be reached"));
   });
+
+  it("shows server-side counts and a dash for an unreadable contact", async () => {
+    server.use(
+      graphql.query("CampaignEditor", () =>
+        HttpResponse.json({ data: { campaign: { ...draft, status: "SENT" }, contactLists: { nodes: [] } } }),
+      ),
+      graphql.query("CampaignMessages", () =>
+        HttpResponse.json({
+          data: {
+            campaignMessages: {
+              totalCount: 250,
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [{ id: "m1", channel: "SMS", status: "SENT", token: "Ab3dE5g", sentAtUtc: null, error: null, contact: null }],
+            },
+          },
+        }),
+      ),
+      graphql.query("CampaignCounts", () =>
+        HttpResponse.json({ data: { queued: { totalCount: 0 }, sent: { totalCount: 250 }, failed: { totalCount: 0 }, skipped: { totalCount: 0 } } }),
+      ),
+    );
+    render(<CampaignPage id="k1" />);
+
+    expect(await screen.findByText("sent: 250")).toBeTruthy();
+    expect(screen.getByText("—")).toBeTruthy();
+  });
 });
