@@ -14,6 +14,9 @@ public interface IRepository<TEntity, in TKey>
 
     Task<IReadOnlyList<TEntity>> ListAsync(Expression<Func<TEntity, bool>>? predicate = null, CancellationToken ct = default);
 
+    /// <summary>Runs a shaped no-tracking query (filter, order, take, select) in SQL, so callers load columns instead of entities.</summary>
+    Task<IReadOnlyList<TResult>> SelectAsync<TResult>(Func<IQueryable<TEntity>, IQueryable<TResult>> shape, CancellationToken ct = default);
+
     Task<TEntity> AddAsync(TEntity entity, CancellationToken ct = default);
 
     /// <summary>Throws NotFoundException when missing and ConcurrencyException when the row version changed.</summary>

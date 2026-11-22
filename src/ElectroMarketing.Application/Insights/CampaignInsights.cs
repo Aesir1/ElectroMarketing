@@ -1,7 +1,6 @@
 using ElectroMarketing.Application.Abstractions;
 using ElectroMarketing.Application.Campaigns;
 using ElectroMarketing.Domain.Campaigns;
-using ElectroMarketing.Domain.Exceptions;
 
 namespace ElectroMarketing.Application.Insights;
 
@@ -35,6 +34,7 @@ public sealed record CampaignInsightsResult(
     double? MedianResponseHours,
     IReadOnlyList<TimelinePoint> Timeline,
     IReadOnlyList<HeatCell> ByWeekdayHour,
+    int ResponderCount,
     IReadOnlyList<Responder> Responders);
 
 public static class CampaignInsights
@@ -51,8 +51,11 @@ public static class CampaignInsights
     /// <summary>A response is a click on the short link (or QR scan) or a landing page view.</summary>
     private static bool IsResponse(TrackingEventType type) => type is TrackingEventType.LinkClick or TrackingEventType.LandingView;
 
+    /// <summary>Responders returned per campaign, newest first.</summary>
+    public const int MaxResponders = 500;
+
     // ponytail: in-memory over all messages and events of one campaign (fine to ~100k); move to SQL aggregates if campaigns grow.
-    public static CampaignInsightsResult Compute(Campaign campaign, IReadOnlyList<MessageFact> messages, IReadOnlyList<EventFact> events, TimeZoneInfo zone)
+    public static CampaignInsightsResult Compute(Campaign campaign, IReadOnlyList<MessageFact> messages, IReadOnlyList<EventFact> events, TimeZoneInfo zone, bool includeResponders = true)
     {
         var byMessage = events.ToLookup(e => e.MessageId);
 
@@ -84,12 +87,13 @@ public static class CampaignInsights
             .Order()
             .ToList();
         var buckets = Buckets.Select((b, i) => new LatencyBucket(b.Label, latencies.Count(l => l < b.UpTo && (i == 0 || l >= Buckets[i - 1].UpTo)))).ToList();
-        double? median = latencies.Count == 0 ? null : Math.Round(latencies[latencies.Count / 2].TotalHours, 1);
+        var n = latencies.Count;
+        double? median = n == 0 ? null : Math.Round((latencies[(n - 1) / 2] + latencies[n / 2]).TotalHours / 2, 1);
 
         var relevant = events.Where(e => e.Type == TrackingEventType.EmailOpen || IsResponse(e.Type)).ToList();
         var hourly = relevant.Count == 0 || campaign.StartedAtUtc is null || relevant.Max(e => e.OccurredAtUtc) - campaign.StartedAtUtc <= TimeSpan.FromDays(3);
         var timeline = relevant
-            .GroupBy(e => Truncate(TimeZoneInfo.ConvertTime(e.OccurredAtUtc, zone), hourly))
+            .GroupBy(e => Bucket(TimeZoneInfo.ConvertTime(e.OccurredAtUtc, zone), zone, hourly))
             .OrderBy(g => g.Key)
             .Select(g => new TimelinePoint(g.Key, g.Count(e => e.Type == TrackingEventType.EmailOpen), g.Count(e => e.Type == TrackingEventType.LinkClick)))
             .ToList();
@@ -103,8 +107,11 @@ public static class CampaignInsights
             .ToList();
 
         DateTimeOffset? First(Guid id, TrackingEventType type) => byMessage[id].Where(e => e.Type == type).Select(e => (DateTimeOffset?)e.OccurredAtUtc).Min();
-        var responders = messages
-            .Where(m => byMessage[m.Id].Any())
+        var responding = messages.Where(m => byMessage[m.Id].Any()).ToList();
+        var responders = !includeResponders ? [] : responding
+            .OrderByDescending(m => byMessage[m.Id].Max(e => e.OccurredAtUtc))
+            .ThenBy(m => m.Id)
+            .Take(MaxResponders)
             .Select(m => new Responder(
                 m.Id,
                 m.Channel,
@@ -112,17 +119,24 @@ public static class CampaignInsights
                 First(m.Id, TrackingEventType.LinkClick),
                 First(m.Id, TrackingEventType.LandingView),
                 First(m.Id, TrackingEventType.Unsubscribe)))
-            .OrderBy(r => new[] { r.OpenedAtUtc, r.ClickedAtUtc, r.LandingViewAtUtc, r.UnsubscribedAtUtc }.Min())
-            .ThenBy(r => r.MessageId)
             .ToList();
 
-        return new CampaignInsightsResult(campaign.Id, campaign.Name, campaign.StartedAtUtc, channels, buckets, median, timeline, heat, responders);
+        return new CampaignInsightsResult(campaign.Id, campaign.Name, campaign.StartedAtUtc, channels, buckets, median, timeline, heat, responding.Count, responders);
     }
 
     private static double Rate(int count, int sent) => sent == 0 ? 0 : Math.Round((double)count / sent, 4);
 
-    private static DateTimeOffset Truncate(DateTimeOffset local, bool hourly) =>
-        new(local.Year, local.Month, local.Day, hourly ? local.Hour : 0, 0, 0, local.Offset);
+    /// <summary>Hourly key keeps the local offset (distinct on DST fall-back). Daily key is the local date at its own midnight offset, so a 23 h or 25 h day is still one bucket.</summary>
+    private static DateTimeOffset Bucket(DateTimeOffset local, TimeZoneInfo zone, bool hourly)
+    {
+        if (hourly)
+        {
+            return new(local.Year, local.Month, local.Day, local.Hour, 0, 0, local.Offset);
+        }
+
+        var midnight = new DateTime(local.Year, local.Month, local.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        return new(midnight, zone.GetUtcOffset(midnight));
+    }
 }
 
 public sealed class InsightsService(
@@ -131,35 +145,42 @@ public sealed class InsightsService(
     IRepository<TrackingEvent, Guid> events,
     CampaignOptions options)
 {
-    public async Task<CampaignInsightsResult> ForCampaignAsync(Guid campaignId, CancellationToken ct = default)
+    // Validated at startup (CampaignSetup), resolved once.
+    private readonly TimeZoneInfo zone = TimeZoneInfo.FindSystemTimeZoneById(options.TimeZone);
+
+    /// <summary>Null when the campaign does not exist.</summary>
+    public async Task<CampaignInsightsResult?> ForCampaignAsync(Guid campaignId, CancellationToken ct = default)
     {
-        var campaign = await campaigns.GetByIdAsync(campaignId, ct) ?? throw NotFoundException.For<Campaign>(campaignId);
-        return await ComputeAsync(campaign, ct);
+        var campaign = (await campaigns.SelectAsync(q => q.Where(c => c.Id == campaignId).Select(c => new CampaignHead(c.Id, c.Name, c.StartedAtUtc)), ct)).SingleOrDefault();
+        return campaign is null ? null : await ComputeAsync(campaign, true, ct);
     }
 
-    /// <summary>The last <paramref name="take"/> (1–20) started campaigns, newest first.</summary>
+    /// <summary>The last <paramref name="take"/> (1–20) started campaigns, newest first. Without responders (the dashboard does not need them).</summary>
     public async Task<IReadOnlyList<CampaignInsightsResult>> RecentAsync(int take, CancellationToken ct = default)
     {
-        var started = (await campaigns.ListAsync(c => c.Status != CampaignStatus.Draft, ct))
-            .OrderByDescending(c => c.StartedAtUtc)
-            .Take(Math.Clamp(take, 1, 20));
+        var count = Math.Clamp(take, 1, 20);
+        var started = await campaigns.SelectAsync(
+            q => q.Where(c => c.Status != CampaignStatus.Draft)
+                .OrderByDescending(c => c.StartedAtUtc)
+                .ThenBy(c => c.Id)
+                .Take(count)
+                .Select(c => new CampaignHead(c.Id, c.Name, c.StartedAtUtc)),
+            ct);
         var result = new List<CampaignInsightsResult>();
         foreach (var campaign in started)
         {
-            result.Add(await ComputeAsync(campaign, ct));
+            result.Add(await ComputeAsync(campaign, false, ct));
         }
 
         return result;
     }
 
-    private async Task<CampaignInsightsResult> ComputeAsync(Campaign campaign, CancellationToken ct)
+    private sealed record CampaignHead(Guid Id, string Name, DateTimeOffset? StartedAtUtc);
+
+    private async Task<CampaignInsightsResult> ComputeAsync(CampaignHead head, bool includeResponders, CancellationToken ct)
     {
-        var m = await messages.ListAsync(x => x.CampaignId == campaign.Id, ct);
-        var e = await events.ListAsync(x => x.Message!.CampaignId == campaign.Id, ct);
-        return CampaignInsights.Compute(
-            campaign,
-            m.Select(x => new MessageFact(x.Id, x.Channel, x.Status, x.SentAtUtc)).ToList(),
-            e.Select(x => new EventFact(x.MessageId, x.Type, x.OccurredAtUtc)).ToList(),
-            TimeZoneInfo.FindSystemTimeZoneById(options.TimeZone));
+        var m = await messages.SelectAsync(q => q.Where(x => x.CampaignId == head.Id).Select(x => new MessageFact(x.Id, x.Channel, x.Status, x.SentAtUtc)), ct);
+        var e = await events.SelectAsync(q => q.Where(x => x.Message!.CampaignId == head.Id).Select(x => new EventFact(x.MessageId, x.Type, x.OccurredAtUtc)), ct);
+        return CampaignInsights.Compute(new Campaign { Id = head.Id, Name = head.Name, StartedAtUtc = head.StartedAtUtc }, m, e, zone, includeResponders);
     }
 }

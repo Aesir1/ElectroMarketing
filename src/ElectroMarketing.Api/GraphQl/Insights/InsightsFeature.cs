@@ -8,7 +8,7 @@ namespace ElectroMarketing.Api.GraphQl.Insights;
 public class InsightsQueries : RootQuery
 {
     [Authorize(Policy = Permissions.Insights.Read)]
-    public Task<CampaignInsightsResult> GetCampaignInsights(Guid campaignId, [Service] InsightsService insights, CancellationToken ct) =>
+    public Task<CampaignInsightsResult?> GetCampaignInsights(Guid campaignId, [Service] InsightsService insights, CancellationToken ct) =>
         insights.ForCampaignAsync(campaignId, ct);
 
     [Authorize(Policy = Permissions.Insights.Read)]

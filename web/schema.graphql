@@ -145,7 +145,7 @@ type Query {
   categories: [Category!]!
     @authorize(policy: "contacts.read")
     @cost(weight: "10")
-  campaignInsights(campaignId: UUID!): CampaignInsightsResult!
+  campaignInsights(campaignId: UUID!): CampaignInsightsResult
     @authorize(policy: "insights.read")
     @cost(weight: "10")
   recentCampaignInsights(take: Int! = 10): [CampaignInsightsResult!]!
@@ -314,6 +314,7 @@ type CampaignInsightsResult {
   medianResponseHours: Float
   timeline: [TimelinePoint!]!
   byWeekdayHour: [HeatCell!]!
+  responderCount: Int!
   responders: [Responder!]!
 }
 

@@ -44,6 +44,16 @@ public sealed class CampaignGraphQlTests(ApiFactory api)
         (await client.GetAsync($"/campaigns/{id}/letters", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Insights_for_an_unknown_campaign_are_null()
+    {
+        using var client = api.ClientFor("analyst@local.test", "user");
+
+        var data = (await client.Gql($$"""{ campaignInsights(campaignId: "{{Guid.NewGuid()}}") { campaignId } }""")).Data();
+
+        data["campaignInsights"].ShouldBeNull();
+    }
+
     private async Task<Guid> SeedListAsync()
     {
         await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(api.AppConnectionString).Options);

@@ -52,7 +52,7 @@ public class CampaignInsightsTests
             new(sms1.Id, TrackingEventType.LinkClick, Sent.AddDays(2)));
 
         result.ResponseLatency.Select(b => (b.Label, b.Count)).ShouldBe([("< 1 h", 1), ("1–6 h", 0), ("6–24 h", 0), ("1–3 d", 1), ("> 3 d", 0)]);
-        result.MedianResponseHours.ShouldBe(48);
+        result.MedianResponseHours.ShouldBe(24.2); // mean of 0.5 h and 48 h
     }
 
     [Fact]
@@ -81,6 +81,49 @@ public class CampaignInsightsTests
         var first = result.Responders.Single(r => r.MessageId == mail1.Id);
         (first.Channel, first.OpenedAtUtc, first.ClickedAtUtc, first.UnsubscribedAtUtc)
             .ShouldBe((Channel.Email, Sent.AddMinutes(5), Sent.AddMinutes(10), null));
+    }
+
+    [Fact]
+    public void Median_of_an_even_count_averages_the_middle_two()
+    {
+        var messages = Enumerable.Range(1, 4).Select(_ => new MessageFact(Guid.CreateVersion7(), Channel.Sms, MessageStatus.Sent, Sent)).ToList();
+        var events = messages.Select((m, i) => new EventFact(m.Id, TrackingEventType.LinkClick, Sent.AddHours(i + 1))).ToList();
+
+        CampaignInsights.Compute(new Campaign { Name = "Even", StartedAtUtc = Sent }, messages, events, Berlin).MedianResponseHours.ShouldBe(2.5);
+    }
+
+    [Fact]
+    public void Responders_are_capped_to_the_newest_and_counted_in_total()
+    {
+        var messages = Enumerable.Range(0, CampaignInsights.MaxResponders + 1).Select(_ => new MessageFact(Guid.CreateVersion7(), Channel.Sms, MessageStatus.Sent, Sent)).ToList();
+        var events = messages.Select((m, i) => new EventFact(m.Id, TrackingEventType.LinkClick, Sent.AddMinutes(i))).ToList();
+
+        var result = CampaignInsights.Compute(new Campaign { Name = "Big", StartedAtUtc = Sent }, messages, events, Berlin);
+
+        result.ResponderCount.ShouldBe(CampaignInsights.MaxResponders + 1);
+        result.Responders.Count.ShouldBe(CampaignInsights.MaxResponders);
+        result.Responders[0].MessageId.ShouldBe(messages[^1].Id);
+        result.Responders.ShouldNotContain(r => r.MessageId == messages[0].Id);
+        CampaignInsights.Compute(new Campaign { Name = "Big", StartedAtUtc = Sent }, messages, events, Berlin, includeResponders: false).Responders.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Daily_buckets_on_a_25_hour_dst_day_are_one_bucket_at_local_midnight()
+    {
+        var started = new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero);
+
+        // 2026-10-25 is the Berlin fall-back day: 00:30 local is +02:00, 23:30 local is +01:00.
+        var result = CampaignInsights.Compute(
+            new Campaign { Name = "Dst", StartedAtUtc = started },
+            [mail1],
+            [
+                new(mail1.Id, TrackingEventType.EmailOpen, new DateTimeOffset(2026, 10, 24, 22, 30, 0, TimeSpan.Zero)),
+                new(mail1.Id, TrackingEventType.EmailOpen, new DateTimeOffset(2026, 10, 25, 22, 30, 0, TimeSpan.Zero)),
+            ],
+            Berlin);
+
+        var point = result.Timeline.ShouldHaveSingleItem();
+        (point.Opens, point.Start.Hour, point.Start.Offset).ShouldBe((2, 0, TimeSpan.FromHours(2)));
     }
 
     [Fact]

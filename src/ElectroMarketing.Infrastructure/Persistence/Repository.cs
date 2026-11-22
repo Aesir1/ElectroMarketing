@@ -22,6 +22,9 @@ public class Repository<TEntity, TKey>(AppDbContext db) : IRepository<TEntity, T
     public virtual async Task<IReadOnlyList<TEntity>> ListAsync(Expression<Func<TEntity, bool>>? predicate = null, CancellationToken ct = default) =>
         await (predicate is null ? Query() : Query().Where(predicate)).ToListAsync(ct);
 
+    public virtual async Task<IReadOnlyList<TResult>> SelectAsync<TResult>(Func<IQueryable<TEntity>, IQueryable<TResult>> shape, CancellationToken ct = default) =>
+        await shape(Query()).ToListAsync(ct);
+
     public virtual async Task<TEntity> AddAsync(TEntity entity, CancellationToken ct = default)
     {
         Set.Add(entity);

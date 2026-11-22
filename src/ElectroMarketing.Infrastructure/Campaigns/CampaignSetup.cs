@@ -13,7 +13,9 @@ public static class CampaignSetup
     {
         services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.Section)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<TrackingOptions>().Bind(configuration.GetSection(TrackingOptions.Section)).ValidateDataAnnotations().ValidateOnStart();
-        services.AddOptions<CampaignOptions>().Bind(configuration.GetSection(CampaignOptions.Section)).ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<CampaignOptions>().Bind(configuration.GetSection(CampaignOptions.Section)).ValidateDataAnnotations()
+            .Validate(o => TimeZoneInfo.TryFindSystemTimeZoneById(o.TimeZone, out _), "Campaigns:TimeZone must be a known IANA time zone id.")
+            .ValidateOnStart();
         services.AddOptions<TwilioOptions>().Bind(configuration.GetSection(TwilioOptions.Section));
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<TrackingOptions>>().Value);
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<CampaignOptions>>().Value);
