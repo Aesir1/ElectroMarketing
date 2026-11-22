@@ -145,6 +145,12 @@ type Query {
   categories: [Category!]!
     @authorize(policy: "contacts.read")
     @cost(weight: "10")
+  campaignInsights(campaignId: UUID!): CampaignInsightsResult!
+    @authorize(policy: "insights.read")
+    @cost(weight: "10")
+  recentCampaignInsights(take: Int! = 10): [CampaignInsightsResult!]!
+    @authorize(policy: "insights.read")
+    @cost(weight: "10")
   contactLists(
     "Returns the first _n_ elements from the list."
     first: Int
@@ -299,6 +305,18 @@ type Campaign {
   updatedBy: String
 }
 
+type CampaignInsightsResult {
+  campaignId: UUID!
+  campaignName: String!
+  startedAtUtc: DateTime
+  channels: [ChannelStats!]!
+  responseLatency: [LatencyBucket!]!
+  medianResponseHours: Float
+  timeline: [TimelinePoint!]!
+  byWeekdayHour: [HeatCell!]!
+  responders: [Responder!]!
+}
+
 "One contact on one channel. Token is the random id in every link of this message."
 type CampaignMessage {
   contact: Contact @authorize(policy: "contacts.read")
@@ -362,6 +380,20 @@ type Category {
   createdBy: String
   updatedAtUtc: DateTime
   updatedBy: String
+}
+
+"Counts are unique messages. Rates are per sent message. E-mail opens are approximate (Apple Mail Privacy Protection pre-loads pixels)."
+type ChannelStats {
+  channel: Channel!
+  sent: Int!
+  failed: Int!
+  skipped: Int!
+  opened: Int!
+  clicked: Int!
+  landingViews: Int!
+  unsubscribed: Int!
+  openRate: Float!
+  clickRate: Float!
 }
 
 "CSV header name for each contact field; null when the file has no such column."
@@ -639,6 +671,13 @@ type ForbiddenError implements Error {
   code: String!
 }
 
+"Weekday 0 = Sunday (DayOfWeek), local time."
+type HeatCell {
+  weekday: Int!
+  hour: Int!
+  count: Int!
+}
+
 "One imported CSV file (a \"lot\"). Adding it publishes import.created, which starts the import consumer."
 type ImportBatch {
   "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
@@ -692,6 +731,11 @@ type ImportBatchesEdge {
 type ImportRowError {
   row: Int!
   message: String!
+}
+
+type LatencyBucket {
+  label: String!
+  count: Int!
 }
 
 type NotFoundError implements Error {
@@ -751,6 +795,19 @@ type RequestDocumentUploadPayload {
   errors: [RequestDocumentUploadError!]
 }
 
+"""
+One message that produced any event, with the first time of each kind. Carries no contact data: the message id
+is the key, and names or e-mails stay behind campaignMessages.contact (contacts.read).
+"""
+type Responder {
+  messageId: UUID!
+  channel: Channel!
+  openedAtUtc: DateTime
+  clickedAtUtc: DateTime
+  landingViewAtUtc: DateTime
+  unsubscribedAtUtc: DateTime
+}
+
 type StartCampaignPayload {
   campaign: Campaign
   errors: [StartCampaignError!]
@@ -759,6 +816,13 @@ type StartCampaignPayload {
 type StartImportPayload {
   importBatch: ImportBatch
   errors: [StartImportError!]
+}
+
+"Start is in the configured time zone: hourly buckets for the first 3 days, daily after."
+type TimelinePoint {
+  start: DateTime!
+  opens: Int!
+  clicks: Int!
 }
 
 type UpdateCampaignPayload {

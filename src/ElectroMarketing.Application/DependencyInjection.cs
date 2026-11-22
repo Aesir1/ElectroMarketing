@@ -2,6 +2,7 @@ using ElectroMarketing.Application.Abstractions;
 using ElectroMarketing.Application.Campaigns;
 using ElectroMarketing.Application.Documents;
 using ElectroMarketing.Application.Imports;
+using ElectroMarketing.Application.Insights;
 using ElectroMarketing.Application.Lists;
 using ElectroMarketing.Application.Tracking;
 using ElectroMarketing.Domain.Contacts;
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<CampaignService>();
         services.AddScoped<CampaignSender>();
         services.AddScoped<TrackingService>();
+        services.AddScoped<InsightsService>();
         services.AddScoped<IMessageHandler<ImportBatchChanged>, ImportRequestedHandler>();
         return services;
     }

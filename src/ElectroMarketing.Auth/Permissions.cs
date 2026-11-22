@@ -47,6 +47,11 @@ public static class Permissions
         public const string Send = "campaigns.send";
     }
 
+    public static class Insights
+    {
+        public const string Read = "insights.read";
+    }
+
     public static class Queues
     {
         public const string Manage = "queues.manage";
