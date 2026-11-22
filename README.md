@@ -74,6 +74,7 @@ observability) and the Keycloak realm/theme under `aspire/ElectroMarketing.AppHo
 | --- | --- | --- |
 | `APP_DOMAIN` | web | the Api is not public; web's BFF routes (`/api/graphql`, `/api/documents/*`, `/api/branding/*`) call it |
 | `AUTH_DOMAIN` | keycloak | `/admin` answers 404; the admin console is on the tunnel |
+| `TRACKING_DOMAIN` | api | only `/o/*`, `/u/*`, `/landing/*` and the 7-character short-link path; everything else answers 404. Also the base of the campaign tracking links (`Tracking__BaseUrl`) |
 
 MinIO has no public host and is not on Caddy's network. All buckets are private: document bytes go
 browser → web → Api → MinIO (the Api checks ownership, type and the 25 MB limit) and branding assets are
@@ -94,6 +95,9 @@ because stock Caddy has no rate limiting. Zones in `docker/caddy/Caddyfile`, all
 | --- | --- | --- | --- | --- |
 | `app` | `APP_DOMAIN` | all | 1000 req / 10s | 26MB (documents ≤ 25MB) |
 | `auth_login` | `AUTH_DOMAIN` | `/realms/electromarketing/protocol/openid-connect/token`, `/realms/electromarketing/login-actions/*` | 30 req / 1m | 1MB |
+| `tracking` | `TRACKING_DOMAIN` | `/o/*`, `/u/*`, `/landing/*`, `/<7 chars>` | 120 req / 1m | 4KB |
+
+Existing deployments: `TRACKING_BASE_URL` is gone; set `TRACKING_DOMAIN` in `.env` instead and add a DNS record for it pointing at the server.
 
 How it behaves: a **sliding window per IP, not a ban**. Requests over the limit get `429 Too Many
 Requests` with a `Retry-After` header; as soon as enough of the window has slid past, the same IP is

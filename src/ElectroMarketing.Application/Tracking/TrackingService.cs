@@ -62,8 +62,11 @@ public sealed class TrackingService(
         return true;
     }
 
+    /// <summary>Messages that were never delivered (Queued, Skipped) behave like unknown tokens.</summary>
     private async Task<CampaignMessage?> FindAsync(string token, CancellationToken ct) =>
-        ShortToken.IsValid(token) ? (await messages.ListAsync(m => m.Token == token, ct)).SingleOrDefault() : null;
+        ShortToken.IsValid(token)
+            ? (await messages.ListAsync(m => m.Token == token && m.Status != MessageStatus.Skipped && m.Status != MessageStatus.Queued, ct)).SingleOrDefault()
+            : null;
 
     private Task<TrackingEvent> AddEventAsync(CampaignMessage message, TrackingEventType type, string? userAgent, CancellationToken ct) =>
         events.AddAsync(

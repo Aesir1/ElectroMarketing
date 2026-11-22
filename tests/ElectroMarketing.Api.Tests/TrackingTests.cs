@@ -94,6 +94,20 @@ public sealed class TrackingTests(ApiFactory api)
     }
 
     [Fact]
+    public async Task Sms_unsubscribe_sets_only_sms_opt_out()
+    {
+        var (token, _, contactId) = await SeedAsync(Channel.Sms);
+        using var client = Anonymous();
+
+        using var post = await client.PostAsync($"/u/{token}", null, Ct);
+
+        post.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await using var read = Db();
+        var contact = await read.Contacts.SingleAsync(c => c.Id == contactId, Ct);
+        (contact.SmsOptOut, contact.EmailOptOut).ShouldBe((true, false));
+    }
+
+    [Fact]
     public async Task Landing_returns_campaign_text_and_records_a_view()
     {
         var (token, messageId, _) = await SeedAsync(Channel.Post);
