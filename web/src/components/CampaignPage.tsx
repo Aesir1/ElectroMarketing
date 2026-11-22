@@ -5,6 +5,7 @@ import { graphql } from "@/gql";
 import type { CampaignDtoInput, CampaignEditorQuery, CampaignMessagesQuery } from "@/gql/graphql";
 import { execute } from "@/lib/graphql";
 import { messageOf } from "./ImportWizard";
+import { CampaignInsightsView } from "./CampaignInsightsView";
 
 const CampaignEditorDocument = graphql(`
   query CampaignEditor($id: UUID!) {
@@ -266,6 +267,7 @@ export function CampaignPage({ id }: { id: string }) {
             Download letters (PDF)
           </a>
         )}
+        <CampaignInsightsView campaignId={id} />
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left">

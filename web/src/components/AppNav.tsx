@@ -20,6 +20,7 @@ const links = [
   { href: "/app/imports", label: "Imports", permission: "imports.write" },
   { href: "/app/lists", label: "Lists", permission: "contacts.read" },
   { href: "/app/campaigns", label: "Campaigns", permission: "campaigns.read" },
+  { href: "/app/insights", label: "Insights", permission: "insights.read" },
   { href: "/app/documents", label: "Documents", permission: "documents.read" },
   { href: "/app/admin/queues", label: "Admin · Queues", permission: "queues.manage" },
 ] as const;

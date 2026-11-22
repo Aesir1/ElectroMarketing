@@ -164,6 +164,13 @@ export type ViewerQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type ViewerQuery = { viewer: { email: string | null, permissions: Array<string> } };
 
+export type CampaignInsightsQueryVariables = Exact<{
+  id: string;
+}>;
+
+
+export type CampaignInsightsQuery = { campaignInsights: { medianResponseHours: number | null, channels: Array<{ channel: Channel, sent: number, failed: number, skipped: number, opened: number, clicked: number, landingViews: number, unsubscribed: number, openRate: number, clickRate: number }>, responseLatency: Array<{ label: string, count: number }>, timeline: Array<{ start: string, opens: number, clicks: number }>, byWeekdayHour: Array<{ weekday: number, hour: number, count: number }> } | null };
+
 export type CampaignEditorQueryVariables = Exact<{
   id: string;
 }>;
@@ -385,6 +392,11 @@ export type CreateListFromBatchMutation = { createContactListFromBatch: { contac
       | { __typename: 'ValidationError', message: string }
     > | null } };
 
+export type RecentInsightsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RecentInsightsQuery = { recentCampaignInsights: Array<{ campaignId: string, campaignName: string, startedAtUtc: string | null, medianResponseHours: number | null, channels: Array<{ channel: Channel, sent: number, openRate: number, clickRate: number, unsubscribed: number }> }> };
+
 export type ContactListsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -461,6 +473,39 @@ export const ViewerDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<ViewerQuery, ViewerQueryVariables>;
+export const CampaignInsightsDocument = new TypedDocumentString(`
+    query CampaignInsights($id: UUID!) {
+  campaignInsights(campaignId: $id) {
+    medianResponseHours
+    channels {
+      channel
+      sent
+      failed
+      skipped
+      opened
+      clicked
+      landingViews
+      unsubscribed
+      openRate
+      clickRate
+    }
+    responseLatency {
+      label
+      count
+    }
+    timeline {
+      start
+      opens
+      clicks
+    }
+    byWeekdayHour {
+      weekday
+      hour
+      count
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<CampaignInsightsQuery, CampaignInsightsQueryVariables>;
 export const CampaignEditorDocument = new TypedDocumentString(`
     query CampaignEditor($id: UUID!) {
   campaign(id: $id) {
@@ -984,6 +1029,23 @@ export const CreateListFromBatchDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<CreateListFromBatchMutation, CreateListFromBatchMutationVariables>;
+export const RecentInsightsDocument = new TypedDocumentString(`
+    query RecentInsights {
+  recentCampaignInsights(take: 10) {
+    campaignId
+    campaignName
+    startedAtUtc
+    medianResponseHours
+    channels {
+      channel
+      sent
+      openRate
+      clickRate
+      unsubscribed
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<RecentInsightsQuery, RecentInsightsQueryVariables>;
 export const ContactListsDocument = new TypedDocumentString(`
     query ContactLists {
   contactLists(first: 100) {
