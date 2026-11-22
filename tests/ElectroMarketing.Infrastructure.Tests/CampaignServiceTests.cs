@@ -66,7 +66,7 @@ public sealed class CampaignServiceTests(PostgresFixture db) : IAsyncLifetime
         await service.StartAsync(campaign.Id, Ct);
 
         await Should.ThrowAsync<ConflictException>(() => service.StartAsync(campaign.Id, Ct));
-        await Should.ThrowAsync<ConflictException>(() => service.UpdateAsync(campaign.Id, Dto(), Ct));
+        await Should.ThrowAsync<ConflictException>(() => service.UpdateAsync(campaign.Id, Dto(), campaign.RowVersion, Ct));
         await Should.ThrowAsync<ConflictException>(() => service.DeleteAsync(campaign.Id, Ct));
     }
 
@@ -145,6 +145,19 @@ public sealed class CampaignServiceTests(PostgresFixture db) : IAsyncLifetime
 
         (await Should.ThrowAsync<ValidationException>(() => service.CreateAsync(dto, Ct))).Errors.Keys.ShouldBe(["contactListId"]);
         var existing = await service.CreateAsync(Dto(), Ct);
-        await Should.ThrowAsync<ValidationException>(() => service.UpdateAsync(existing.Id, dto, Ct));
+        await Should.ThrowAsync<ValidationException>(() => service.UpdateAsync(existing.Id, dto, existing.RowVersion, Ct));
+    }
+
+    [Fact]
+    public async Task Update_with_stale_row_version_throws_concurrency()
+    {
+        await using var ctx = db.Create();
+        var service = Service(ctx);
+        var campaign = await service.CreateAsync(Dto(), Ct);
+        var stale = campaign.RowVersion;
+        await service.UpdateAsync(campaign.Id, Dto() with { Name = "Changed" }, stale, Ct);
+
+        await using var other = db.Create();
+        await Should.ThrowAsync<ConcurrencyException>(() => Service(other).UpdateAsync(campaign.Id, Dto(), stale, Ct));
     }
 }

@@ -44,11 +44,15 @@ public sealed class CampaignService(IRepository<Campaign, Guid> campaigns, ICamp
         return await base.CreateAsync(dto, ct);
     }
 
-    public override async Task<Campaign> UpdateAsync(Guid id, CampaignDto dto, CancellationToken ct = default)
+    /// <summary>Updates a draft; <paramref name="rowVersion"/> is the version the editor loaded, so a stale save throws ConcurrencyException.</summary>
+    public async Task<Campaign> UpdateAsync(Guid id, CampaignDto dto, uint rowVersion, CancellationToken ct = default)
     {
         DtoValidator.Validate(dto);
         await RequireListAsync(dto.ContactListId, ct);
-        return await base.UpdateAsync(id, dto, ct);
+        var entity = await Repository.GetByIdAsync(id, ct) ?? throw NotFoundException.For<Campaign>(id);
+        Apply(dto, entity);
+        entity.RowVersion = rowVersion;
+        return await Repository.UpdateAsync(entity, ct);
     }
 
     public override async Task DeleteAsync(Guid id, CancellationToken ct = default)

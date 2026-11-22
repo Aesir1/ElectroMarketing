@@ -142,6 +142,8 @@ internal sealed class CampaignMessageConfiguration : IEntityTypeConfiguration<Ca
         b.HasIndex(m => m.Token).IsUnique();
         b.HasIndex(m => new { m.CampaignId, m.Channel, m.Status });
         b.HasOne<Campaign>().WithMany().HasForeignKey(m => m.CampaignId).OnDelete(DeleteBehavior.Cascade);
+
+        // ponytail: cascade would erase campaign history with the contact; switch to anonymize or Restrict before adding contact deletion or GDPR erasure.
         b.HasOne(m => m.Contact).WithMany().HasForeignKey(m => m.ContactId).OnDelete(DeleteBehavior.Cascade);
     }
 }

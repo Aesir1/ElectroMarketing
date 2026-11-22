@@ -70,6 +70,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public string AppConnectionString => Db("postgres");
 
+    public string AuthConnectionString => Db("auth");
+
     /// <summary>HttpClient with a bearer token for a user holding <paramref name="roles"/>.</summary>
     public HttpClient ClientFor(string email, params string[] roles)
     {

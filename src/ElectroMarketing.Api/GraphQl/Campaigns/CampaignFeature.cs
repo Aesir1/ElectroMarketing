@@ -5,6 +5,7 @@ using ElectroMarketing.Auth;
 using ElectroMarketing.Domain.Campaigns;
 using HotChocolate.Authorization;
 using HotChocolate.Data.Filters;
+using HotChocolate.Data.Sorting;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 
@@ -37,7 +38,7 @@ public class CampaignQueries : RootQuery
     [UsePaging(MaxPageSize = 100, IncludeTotalCount = true)]
     [UseProjection]
     [UseFiltering<CampaignMessageFilterType>]
-    [UseSorting]
+    [UseSorting<CampaignMessageSortType>]
     public IQueryable<CampaignMessage> GetCampaignMessages(IResolverContext context, Guid campaignId, [Service] IRepository<CampaignMessage, Guid> messages)
     {
         var query = messages.Query().Where(m => m.CampaignId == campaignId);
@@ -58,8 +59,8 @@ public class CampaignMutations : RootMutation
     [Error<ValidationError>]
     [Error<ConflictError>]
     [Error<ConcurrencyError>]
-    public Task<Campaign> UpdateCampaign(Guid id, CampaignDto campaign, [Service] CampaignService campaigns, CancellationToken ct) =>
-        campaigns.UpdateAsync(id, campaign, ct);
+    public Task<Campaign> UpdateCampaign(Guid id, CampaignDto campaign, uint rowVersion, [Service] CampaignService campaigns, CancellationToken ct) =>
+        campaigns.UpdateAsync(id, campaign, rowVersion, ct);
 
     [Authorize(Policy = Permissions.Campaigns.Write)]
     [Error<NotFoundError>]
@@ -92,6 +93,12 @@ public sealed class CampaignType : ObjectType<Campaign>
 public sealed class CampaignMessageFilterType : FilterInputType<CampaignMessage>
 {
     protected override void Configure(IFilterInputTypeDescriptor<CampaignMessage> descriptor) => descriptor.Ignore(m => m.Contact);
+}
+
+/// <summary>Same for sorting: no ContactSortInput clash, and no sorting by contact columns without contacts.read.</summary>
+public sealed class CampaignMessageSortType : SortInputType<CampaignMessage>
+{
+    protected override void Configure(ISortInputTypeDescriptor<CampaignMessage> descriptor) => descriptor.Ignore(m => m.Contact);
 }
 
 /// <summary>The message exposes its contact, so reading it also needs contacts.read.</summary>

@@ -97,8 +97,6 @@ because stock Caddy has no rate limiting. Zones in `docker/caddy/Caddyfile`, all
 | `auth_login` | `AUTH_DOMAIN` | `/realms/electromarketing/protocol/openid-connect/token`, `/realms/electromarketing/login-actions/*` | 30 req / 1m | 1MB |
 | `tracking` | `TRACKING_DOMAIN` | `/o/*`, `/u/*`, `/landing/*`, `/<7 chars>` | 120 req / 1m | 4KB |
 
-Existing deployments: `TRACKING_BASE_URL` is gone; set `TRACKING_DOMAIN` in `.env` instead and add a DNS record for it pointing at the server.
-
 How it behaves: a **sliding window per IP, not a ban**. Requests over the limit get `429 Too Many
 Requests` with a `Retry-After` header; as soon as enough of the window has slid past, the same IP is
 served again — nothing is remembered beyond the window, there is no block list to expire or reset.
@@ -113,6 +111,8 @@ Least privilege: the api connects as a DML-only role (`docker/postgres-init`), m
 in the one-shot `dbutils-migrate`, and the api gets its own MinIO account scoped to its
 buckets (`docker/minio-init`). `dbutils-seed` upserts master data and the realm's login theme and default
 role; it creates no users.
+
+Imports run inside the RabbitMQ consumer, so one import must finish within the broker's `consumer_timeout` (default 30 min); to raise it, set `consumer_timeout = <ms>` in `rabbitmq.conf` (or `RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS="-rabbit consumer_timeout <ms>"`) and restart the broker.
 
 Local test on this machine (`*.localhost` resolves to 127.0.0.1, `CADDY_TLS=internal`):
 

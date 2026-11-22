@@ -442,6 +442,7 @@ type Contact {
   obtainedOn: LocalDate
   emailOptOut: Boolean!
   smsOptOut: Boolean!
+  postOptOut: Boolean!
   id: UUID!
   createdAtUtc: DateTime!
   createdBy: String
@@ -969,7 +970,6 @@ input CampaignMessageSortInput {
   id: SortEnumType @cost(weight: "10")
   campaignId: SortEnumType @cost(weight: "10")
   contactId: SortEnumType @cost(weight: "10")
-  contact: ContactSortInput @cost(weight: "10")
   channel: SortEnumType @cost(weight: "10")
   token: SortEnumType @cost(weight: "10")
   status: SortEnumType @cost(weight: "10")
@@ -1130,6 +1130,7 @@ input ContactSortInput {
   obtainedOn: SortEnumType @cost(weight: "10")
   emailOptOut: SortEnumType @cost(weight: "10")
   smsOptOut: SortEnumType @cost(weight: "10")
+  postOptOut: SortEnumType @cost(weight: "10")
   id: SortEnumType @cost(weight: "10")
   createdAtUtc: SortEnumType @cost(weight: "10")
   createdBy: SortEnumType @cost(weight: "10")
@@ -1431,6 +1432,7 @@ input UnsignedIntOperationFilterInput {
 input UpdateCampaignInput {
   id: UUID!
   campaign: CampaignDtoInput!
+  rowVersion: UnsignedInt!
 }
 
 input UuidOperationFilterInput {

@@ -153,7 +153,7 @@ services:
       Smtp__Username: ${SMTP_USERNAME:-}
       Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__From: ${SMTP_FROM:?set SMTP_FROM in .env}
-      # Leave TWILIO_ACCOUNT_SID empty to log SMS instead of sending them.
+      # Empty Twilio settings: SMS is only logged in Development; here SMS messages fail with "SMS is not configured".
       Twilio__AccountSid: ${TWILIO_ACCOUNT_SID:-}
       Twilio__AuthToken: ${TWILIO_AUTH_TOKEN:-}
       Twilio__From: ${TWILIO_FROM:-}

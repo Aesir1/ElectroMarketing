@@ -11,6 +11,7 @@ const CampaignEditorDocument = graphql(`
   query CampaignEditor($id: UUID!) {
     campaign(id: $id) {
       id
+      rowVersion
       name
       status
       contactListId
@@ -85,6 +86,7 @@ const SaveCampaignDocument = graphql(`
     updateCampaign(input: $input) {
       campaign {
         id
+        rowVersion
       }
       errors {
         __typename
@@ -203,13 +205,16 @@ export function CampaignPage({ id }: { id: string }) {
   if (!campaign) return error ? <p role="alert">{error}</p> : <p>Loading…</p>;
 
   const set = <K extends keyof Campaign>(key: K, value: Campaign[K]) => setCampaign({ ...campaign, [key]: value });
-  const input = () => ({ id, campaign: Object.fromEntries(editable.map((k) => [k, campaign[k] ?? null])) as CampaignDtoInput });
+  const input = () => ({ id, campaign: Object.fromEntries(editable.map((k) => [k, campaign[k] ?? null])) as CampaignDtoInput, rowVersion: campaign.rowVersion });
 
   async function save(): Promise<boolean> {
     setSaved(false);
     const { updateCampaign } = await execute(SaveCampaignDocument, { input: input() });
     setError(messageOf(updateCampaign.errors));
     const ok = !updateCampaign.errors?.length;
+    // The next save must carry the new version.
+    const next = updateCampaign.campaign;
+    if (next) setCampaign((c) => c && { ...c, rowVersion: next.rowVersion });
     setSaved(ok);
     return ok;
   }
@@ -258,7 +263,7 @@ export function CampaignPage({ id }: { id: string }) {
           ))}
         </ul>
         {error && (
-          <p role="alert" className="text-sm text-danger">
+          <p role="alert" className="text-sm text-error">
             {error}
           </p>
         )}
@@ -364,7 +369,7 @@ export function CampaignPage({ id }: { id: string }) {
         <textarea aria-label="Landing text" rows={5} value={campaign.landingBody ?? ""} onChange={(e) => set("landingBody", e.target.value)} className={field} />
       </section>
       {error && (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-sm text-error">
           {error}
         </p>
       )}

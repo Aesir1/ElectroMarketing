@@ -5,6 +5,7 @@ import { server } from "@/test/server";
 import { CampaignPage } from "./CampaignPage";
 
 const draft = {
+  rowVersion: 1,
   id: "k1",
   name: "Spring",
   status: "DRAFT",
@@ -29,7 +30,7 @@ describe("CampaignPage", () => {
       graphql.query("CampaignEditor", () =>
         HttpResponse.json({ data: { campaign: draft, contactLists: { nodes: [{ id: "l1", name: "Fair", memberCount: 3 }] } } }),
       ),
-      graphql.mutation("SaveCampaign", () => HttpResponse.json({ data: { updateCampaign: { campaign: { id: "k1" }, errors: null } } })),
+      graphql.mutation("SaveCampaign", () => HttpResponse.json({ data: { updateCampaign: { campaign: { id: "k1", rowVersion: 2 }, errors: null } } })),
       graphql.mutation("StartCampaign", () =>
         HttpResponse.json({
           data: {

@@ -157,6 +157,7 @@ export type StartImportInput = {
 export type UpdateCampaignInput = {
   campaign: CampaignDtoInput;
   id: string;
+  rowVersion: number;
 };
 
 export type ViewerQueryVariables = Exact<{ [key: string]: never; }>;
@@ -176,7 +177,7 @@ export type CampaignEditorQueryVariables = Exact<{
 }>;
 
 
-export type CampaignEditorQuery = { campaign: { id: string, name: string, status: CampaignStatus, contactListId: string | null, sendEmail: boolean, sendSms: boolean, sendPost: boolean, emailSubject: string | null, emailBody: string | null, smsText: string | null, letterBody: string | null, landingTitle: string | null, landingBody: string | null, startedAtUtc: string | null, finishedAtUtc: string | null, lettersReady: boolean } | null, contactLists: { nodes: Array<{ id: string, name: string, memberCount: number }> | null } | null };
+export type CampaignEditorQuery = { campaign: { id: string, rowVersion: number, name: string, status: CampaignStatus, contactListId: string | null, sendEmail: boolean, sendSms: boolean, sendPost: boolean, emailSubject: string | null, emailBody: string | null, smsText: string | null, letterBody: string | null, landingTitle: string | null, landingBody: string | null, startedAtUtc: string | null, finishedAtUtc: string | null, lettersReady: boolean } | null, contactLists: { nodes: Array<{ id: string, name: string, memberCount: number }> | null } | null };
 
 export type CampaignMessagesQueryVariables = Exact<{
   id: string;
@@ -198,7 +199,7 @@ export type SaveCampaignMutationVariables = Exact<{
 }>;
 
 
-export type SaveCampaignMutation = { updateCampaign: { campaign: { id: string } | null, errors: Array<
+export type SaveCampaignMutation = { updateCampaign: { campaign: { id: string, rowVersion: number } | null, errors: Array<
       | { __typename: 'ConcurrencyError', message: string }
       | { __typename: 'ConflictError', message: string }
       | { __typename: 'NotFoundError', message: string }
@@ -510,6 +511,7 @@ export const CampaignEditorDocument = new TypedDocumentString(`
     query CampaignEditor($id: UUID!) {
   campaign(id: $id) {
     id
+    rowVersion
     name
     status
     contactListId
@@ -581,6 +583,7 @@ export const SaveCampaignDocument = new TypedDocumentString(`
   updateCampaign(input: $input) {
     campaign {
       id
+      rowVersion
     }
     errors {
       __typename
