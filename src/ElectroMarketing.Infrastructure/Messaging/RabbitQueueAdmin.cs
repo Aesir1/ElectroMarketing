@@ -28,6 +28,7 @@ public sealed class RabbitQueueAdmin(IConnection connection, HttpClient manageme
     public async Task DeclareQueueAsync(QueueDefinition definition, CancellationToken ct = default)
     {
         await using var channel = await connection.CreateChannelAsync(cancellationToken: ct);
+        await MessagingTopology.DeclareAsync(channel, ct);
         await MessagingTopology.DeclareQueueAsync(
             channel,
             definition.Name,

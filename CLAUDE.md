@@ -1,4 +1,3 @@
-- Read graphify-out/GRAPH_REPORT.md before architecture questions or file searches.
 - Use context7 for any library API you're not 100% sure about.
 - Verify frontend changes with agent-browser before marking done.
 - Prefer editing existing files over creating new ones. (Ponytail enforces the rest.)

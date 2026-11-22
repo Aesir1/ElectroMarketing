@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using ElectroMarketing.Application.Abstractions;
-using ElectroMarketing.Domain.Products;
 using ElectroMarketing.Infrastructure.Messaging;
 using ElectroMarketing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -15,8 +14,9 @@ namespace ElectroMarketing.Infrastructure.Tests;
 /// <summary>MQ-6: publish → consume → ack, retry → dead-letter, the four admin operations, and the outbox.</summary>
 public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
 {
+    private const string TestQueue = "test-audit";
     private readonly RabbitMqContainer rabbit = new RabbitMqBuilder("rabbitmq:4-management").WithPortBinding(15672, true).Build();
-    private readonly IMessageHandler<ProductChanged> handler = Substitute.For<IMessageHandler<ProductChanged>>();
+    private readonly IMessageHandler<TestEvent> handler = Substitute.For<IMessageHandler<TestEvent>>();
     private IConnection connection = null!;
     private IChannel channel = null!;
     private ServiceProvider services = null!;
@@ -30,6 +30,7 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
         connection = await new ConnectionFactory { Uri = new Uri(rabbit.GetConnectionString()) }.CreateConnectionAsync(Ct);
         channel = await connection.CreateChannelAsync(cancellationToken: Ct);
         await MessagingTopology.DeclareAsync(channel, Ct);
+        await MessagingTopology.DeclareQueueAsync(channel, TestQueue, MessagingTopology.DomainEvents, "test.*", MessagingTopology.DomainEventsDlx, Ct);
         services = new ServiceCollection()
             .AddScoped(_ => handler)
             .AddScoped(_ => db.Create())
@@ -64,30 +65,30 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
     {
         var consumer = new TestConsumer(connection, services.GetRequiredService<IServiceScopeFactory>());
         await consumer.StartAsync(Ct);
-        await WaitUntil(async () => await channel.ConsumerCountAsync(MessagingTopology.ProductAuditQueue, Ct) == 1);
+        await WaitUntil(async () => await channel.ConsumerCountAsync(TestQueue, Ct) == 1);
         return consumer;
     }
 
-    private static ProductChanged Changed() => new(Guid.CreateVersion7(), Domain.Abstractions.ChangeType.Created, "Reefer", "RF-1", 10m, DateTimeOffset.UtcNow);
+    private static TestEvent Changed() => new("RF-1");
 
     [Fact]
     public async Task Published_message_is_consumed_and_acked_with_headers()
     {
         using var consumer = await StartConsumer();
         MessageContext? seen = null;
-        handler.HandleAsync(Arg.Any<ProductChanged>(), Arg.Do<MessageContext>(c => seen = c), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        handler.HandleAsync(Arg.Any<TestEvent>(), Arg.Do<MessageContext>(c => seen = c), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
         using (var activity = new System.Diagnostics.Activity("test").Start())
         {
-            await new RabbitMessagePublisher(connection).PublishAsync(Changed(), "product.created", "msg-1", Ct);
+            await new RabbitMessagePublisher(connection).PublishAsync(Changed(), "test.created", "msg-1", Ct);
         }
 
         await WaitUntil(() => Task.FromResult(seen is not null));
         seen!.MessageId.ShouldBe("msg-1");
-        seen.RoutingKey.ShouldBe("product.created");
+        seen.RoutingKey.ShouldBe("test.created");
         seen.CorrelationId.ShouldNotBeNullOrEmpty();
-        await WaitUntil(async () => await Depth(MessagingTopology.ProductAuditQueue) == 0);
-        (await Depth(MessagingTopology.DeadLetterQueue(MessagingTopology.ProductAuditQueue))).ShouldBe(0u);
+        await WaitUntil(async () => await Depth(TestQueue) == 0);
+        (await Depth(MessagingTopology.DeadLetterQueue(TestQueue))).ShouldBe(0u);
         await consumer.StopAsync(CancellationToken.None);
     }
 
@@ -95,12 +96,12 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
     public async Task Failing_handler_retries_then_dead_letters()
     {
         using var consumer = await StartConsumer();
-        handler.HandleAsync(Arg.Any<ProductChanged>(), Arg.Any<MessageContext>(), Arg.Any<CancellationToken>())
+        handler.HandleAsync(Arg.Any<TestEvent>(), Arg.Any<MessageContext>(), Arg.Any<CancellationToken>())
             .Returns<Task>(_ => throw new InvalidOperationException("db down"));
 
-        await new RabbitMessagePublisher(connection).PublishAsync(Changed(), "product.updated", ct: Ct);
+        await new RabbitMessagePublisher(connection).PublishAsync(Changed(), "test.updated", ct: Ct);
 
-        await WaitUntil(async () => await Depth(MessagingTopology.DeadLetterQueue(MessagingTopology.ProductAuditQueue)) == 1);
+        await WaitUntil(async () => await Depth(MessagingTopology.DeadLetterQueue(TestQueue)) == 1);
         handler.ReceivedCalls().Count().ShouldBe(4); // first try + 3 retries
         await consumer.StopAsync(CancellationToken.None);
     }
@@ -109,12 +110,12 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
     public async Task Domain_exception_dead_letters_without_retry()
     {
         using var consumer = await StartConsumer();
-        handler.HandleAsync(Arg.Any<ProductChanged>(), Arg.Any<MessageContext>(), Arg.Any<CancellationToken>())
+        handler.HandleAsync(Arg.Any<TestEvent>(), Arg.Any<MessageContext>(), Arg.Any<CancellationToken>())
             .Returns<Task>(_ => throw new Domain.Exceptions.ConflictException("no"));
 
-        await new RabbitMessagePublisher(connection).PublishAsync(Changed(), "product.deleted", ct: Ct);
+        await new RabbitMessagePublisher(connection).PublishAsync(Changed(), "test.deleted", ct: Ct);
 
-        await WaitUntil(async () => await Depth(MessagingTopology.DeadLetterQueue(MessagingTopology.ProductAuditQueue)) == 1);
+        await WaitUntil(async () => await Depth(MessagingTopology.DeadLetterQueue(TestQueue)) == 1);
         handler.ReceivedCalls().Count().ShouldBe(1);
         await consumer.StopAsync(CancellationToken.None);
     }
@@ -142,10 +143,11 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
     public async Task Outbox_publisher_publishes_committed_rows_once()
     {
         var queue = (await channel.QueueDeclareAsync(cancellationToken: Ct)).QueueName;
-        await channel.QueueBindAsync(queue, MessagingTopology.DomainEvents, "product.*", cancellationToken: Ct);
+        await channel.QueueBindAsync(queue, MessagingTopology.DomainEvents, "test.*", cancellationToken: Ct);
         await using (var ctx = db.Create())
         {
-            await new Repository<Product, Guid>(ctx).AddAsync(new Product { Name = "Reefer", Sku = "OUT-1", Price = 1m }, Ct);
+            ctx.OutboxMessages.Add(Outbox("OUT-1"));
+            await ctx.SaveChangesAsync(Ct);
         }
 
         var outbox = new OutboxPublisher(services.GetRequiredService<IServiceScopeFactory>(), new RabbitMessagePublisher(connection), db.Time, NullLogger<OutboxPublisher>.Instance);
@@ -153,9 +155,9 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
         (await outbox.PublishBatchAsync(Ct)).ShouldBe(0);
 
         var message = await channel.BasicGetAsync(queue, autoAck: true, Ct);
-        message!.RoutingKey.ShouldBe("product.created");
-        message.BasicProperties.Type.ShouldBe(nameof(ProductChanged));
-        JsonSerializer.Deserialize<ProductChanged>(message.Body.Span, JsonSerializerOptions.Web)!.Sku.ShouldBe("OUT-1");
+        message!.RoutingKey.ShouldBe("test.created");
+        message.BasicProperties.Type.ShouldBe(nameof(TestEvent));
+        JsonSerializer.Deserialize<TestEvent>(message.Body.Span, JsonSerializerOptions.Web)!.Name.ShouldBe("OUT-1");
         await using var check = db.Create();
         (await check.OutboxMessages.SingleAsync(Ct)).Id.ToString().ShouldBe(message.BasicProperties.MessageId);
     }
@@ -165,7 +167,8 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
     {
         await using (var ctx = db.Create())
         {
-            await new Repository<Product, Guid>(ctx).AddAsync(new Product { Name = "Reefer", Sku = "OUT-2", Price = 1m }, Ct);
+            ctx.OutboxMessages.Add(Outbox("OUT-2"));
+            await ctx.SaveChangesAsync(Ct);
         }
 
         await connection.CloseAsync(Ct);
@@ -178,10 +181,20 @@ public sealed class MessagingTests(PostgresFixture db) : IAsyncLifetime
         row.Attempts.ShouldBe(1);
     }
 
-    private sealed class TestConsumer(IConnection connection, IServiceScopeFactory scopes)
-        : HandlerConsumer<ProductChanged>(connection, scopes, NullLogger.Instance)
+    private static OutboxMessage Outbox(string name) => new()
     {
-        protected override string Queue => MessagingTopology.ProductAuditQueue;
+        Type = nameof(TestEvent),
+        RoutingKey = "test.created",
+        Payload = JsonSerializer.Serialize(new TestEvent(name), JsonSerializerOptions.Web),
+        OccurredAtUtc = DateTimeOffset.UtcNow,
+    };
+
+    public sealed record TestEvent(string Name);
+
+    private sealed class TestConsumer(IConnection connection, IServiceScopeFactory scopes)
+        : HandlerConsumer<TestEvent>(connection, scopes, NullLogger.Instance)
+    {
+        protected override string Queue => TestQueue;
 
         protected override TimeSpan[] Backoff { get; } = [TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(50)];
     }

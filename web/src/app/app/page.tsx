@@ -1,12 +1,5 @@
-import { Suspense } from "react";
-import { ContainerBrowser } from "@/components/ContainerBrowser";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Containers" };
-
-export default function ContainersPage() {
-  return (
-    <Suspense>
-      <ContainerBrowser />
-    </Suspense>
-  );
+export default function Page() {
+  redirect("/app/documents");
 }

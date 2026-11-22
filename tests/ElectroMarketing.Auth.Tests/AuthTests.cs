@@ -28,7 +28,7 @@ public sealed class AuthTests : IAsyncLifetime
         await using var db = Db();
         await db.Database.MigrateAsync(Ct);
         db.Roles.Add(new AppRole { Id = UserRole, Name = Roles.User, NormalizedName = "USER" });
-        db.RoleClaims.Add(new IdentityRoleClaim<Guid> { RoleId = UserRole, ClaimType = Permissions.ClaimType, ClaimValue = Permissions.Products.Read });
+        db.RoleClaims.Add(new IdentityRoleClaim<Guid> { RoleId = UserRole, ClaimType = Permissions.ClaimType, ClaimValue = Permissions.Documents.Read });
         await db.SaveChangesAsync(Ct);
     }
 
@@ -78,7 +78,7 @@ public sealed class AuthTests : IAsyncLifetime
 
         principal.IsInRole(Roles.User).ShouldBeTrue();
         principal.IsInRole("offline_access").ShouldBeTrue();
-        principal.FindAll(Permissions.ClaimType).Select(c => c.Value).ShouldBe([Permissions.Products.Read]);
+        principal.FindAll(Permissions.ClaimType).Select(c => c.Value).ShouldBe([Permissions.Documents.Read]);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class AuthTests : IAsyncLifetime
         (user.Id, user.Email).ShouldBe((id, "five@local.test"));
         user.Roles.ShouldBe([Roles.PlatformAdmin]);
         user.HasPermission(Permissions.Queues.Manage).ShouldBeTrue();
-        user.HasPermission(Permissions.Products.Write).ShouldBeFalse();
+        user.HasPermission(Permissions.Documents.Write).ShouldBeFalse();
 
         // HttpContextAccessor shares one AsyncLocal, so use a fake for "no request".
         var nobody = new CurrentUser(Substitute.For<IHttpContextAccessor>());
@@ -158,15 +158,15 @@ public sealed class AuthTests : IAsyncLifetime
         var services = new ServiceCollection().AddLogging().AddElectroMarketingAuth(new ConfigurationBuilder().Build()).BuildServiceProvider();
         var policies = services.GetRequiredService<IAuthorizationPolicyProvider>();
         var authorization = services.GetRequiredService<IAuthorizationService>();
-        var holder = new ClaimsPrincipal(new ClaimsIdentity([new Claim(Permissions.ClaimType, Permissions.Products.Write)], "Bearer"));
+        var holder = new ClaimsPrincipal(new ClaimsIdentity([new Claim(Permissions.ClaimType, Permissions.Documents.Write)], "Bearer"));
 
         foreach (var permission in Permissions.All)
         {
             (await policies.GetPolicyAsync(permission)).ShouldNotBeNull(permission);
         }
 
-        (await authorization.AuthorizeAsync(holder, Permissions.Products.Write)).Succeeded.ShouldBeTrue();
+        (await authorization.AuthorizeAsync(holder, Permissions.Documents.Write)).Succeeded.ShouldBeTrue();
         (await authorization.AuthorizeAsync(holder, Permissions.Queues.Manage)).Succeeded.ShouldBeFalse();
-        Permissions.All.Count.ShouldBe(6);
+        Permissions.All.Count.ShouldBe(3);
     }
 }

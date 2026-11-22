@@ -50,15 +50,8 @@ public sealed class ContextCommandsTests : IAsyncLifetime
         (await commands.MigrateAsync(Ct)).ShouldBeGreaterThan(0);
         (await commands.PendingMigrationsAsync(Ct)).ShouldBeEmpty();
 
-        (await commands.SeedFixturesAsync(Ct)).ShouldBe(50); // 2 containers + 48 readings
         (await commands.SeedFixturesAsync(Ct)).ShouldBe(0);
-        (await commands.SeedMasterDataAsync(Ct)).ShouldBe(3);
         (await commands.SeedMasterDataAsync(Ct)).ShouldBe(0);
-
-        var product = await db.Products.FirstAsync(Ct);
-        product.Price = 1m;
-        await db.SaveChangesAsync(Ct);
-        (await commands.SeedMasterDataAsync(Ct)).ShouldBe(1); // upsert restores reference data
 
         (await commands.MaintainAsync(new MaintainOptions(VacuumAnalyze: true, null, false, false), Ct)).ShouldBeGreaterThan(0);
 

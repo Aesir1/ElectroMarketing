@@ -4,7 +4,7 @@ namespace ElectroMarketing.Auth;
 
 /// <summary>
 /// Every permission is a constant; one authorization policy per constant is generated at startup (AU-13).
-/// Resolvers use <c>[Authorize(Policy = Permissions.Products.Write)]</c>, never roles.
+/// Resolvers use <c>[Authorize(Policy = Permissions.Documents.Write)]</c>, never roles.
 /// </summary>
 public static class Permissions
 {
@@ -18,17 +18,6 @@ public static class Permissions
         .ToList());
 
     public static IReadOnlyList<string> All => AllPermissions.Value;
-
-    public static class Containers
-    {
-        public const string Read = "containers.read";
-    }
-
-    public static class Products
-    {
-        public const string Read = "products.read";
-        public const string Write = "products.write";
-    }
 
     public static class Documents
     {

@@ -27,11 +27,11 @@ public class SchemaTests
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "ElectroMarketing.sln")))
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "ElectroMarketing.slnx")))
         {
             dir = dir.Parent;
         }
 
-        return dir?.FullName ?? throw new DirectoryNotFoundException("ElectroMarketing.sln not found above the test output.");
+        return dir?.FullName ?? throw new DirectoryNotFoundException("ElectroMarketing.slnx not found above the test output.");
     }
 }

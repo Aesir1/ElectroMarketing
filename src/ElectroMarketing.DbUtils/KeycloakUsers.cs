@@ -54,7 +54,7 @@ internal sealed class KeycloakUsers(HttpClient http, SeedOptions options, ILogge
         return created;
     }
 
-    /// <summary>Production-safe: the login theme and the default <c>user</c> role for self-registered accounts.</summary>
+    /// <summary>Safe for production: the login theme and the default <c>user</c> role for self-registered accounts.</summary>
     public async Task<int> SeedRealmAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.KeycloakAdminPassword))

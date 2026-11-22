@@ -1,7 +1,5 @@
 using ElectroMarketing.Application.Abstractions;
 using ElectroMarketing.Application.Documents;
-using ElectroMarketing.Application.Products;
-using ElectroMarketing.Domain.Products;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,9 +12,7 @@ public static class DependencyInjection
     {
         _ = configuration;
         services.TryAddSingleton(TimeProvider.System);
-        services.AddScoped<ProductService>();
         services.AddScoped<DocumentService>();
-        services.AddScoped<IMessageHandler<ProductChanged>, ProductAuditHandler>();
         return services;
     }
 }

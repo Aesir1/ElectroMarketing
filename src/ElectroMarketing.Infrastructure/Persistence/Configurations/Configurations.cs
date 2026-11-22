@@ -1,61 +1,8 @@
-using ElectroMarketing.Domain.Containers;
 using ElectroMarketing.Domain.Documents;
-using ElectroMarketing.Domain.Products;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ElectroMarketing.Infrastructure.Persistence.Configurations;
-
-internal sealed class ContainerConfiguration : IEntityTypeConfiguration<Container>
-{
-    public void Configure(EntityTypeBuilder<Container> b)
-    {
-        b.Property(c => c.Code).HasMaxLength(64);
-        b.HasIndex(c => c.Code).IsUnique();
-        b.HasMany(c => c.Temperatures).WithOne(t => t.Container).HasForeignKey(t => t.ContainerId).OnDelete(DeleteBehavior.Cascade);
-    }
-}
-
-internal sealed class TemperatureConfiguration : IEntityTypeConfiguration<Temperature>
-{
-    public void Configure(EntityTypeBuilder<Temperature> b)
-    {
-        b.Property(t => t.Id).ValueGeneratedNever();
-        b.Property(t => t.Celsius).HasPrecision(8, 3);
-        b.HasIndex(t => new { t.ContainerId, t.TimestampUtc });
-    }
-}
-
-internal sealed class ContainerSummaryConfiguration : IEntityTypeConfiguration<ContainerSummary>
-{
-    public void Configure(EntityTypeBuilder<ContainerSummary> b) => b.HasNoKey().ToView("ContainerSummaries");
-}
-
-internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
-{
-    public void Configure(EntityTypeBuilder<Product> b)
-    {
-        b.Property(p => p.Name).HasMaxLength(200);
-        b.Property(p => p.Sku).HasMaxLength(32);
-        b.Property(p => p.Price).HasPrecision(12, 2);
-        b.HasIndex(p => p.Sku).IsUnique().HasFilter("\"IsDeleted\" = false");
-        b.Ignore(p => p.EventName);
-    }
-}
-
-internal sealed class ProductAuditConfiguration : IEntityTypeConfiguration<ProductAudit>
-{
-    public void Configure(EntityTypeBuilder<ProductAudit> b)
-    {
-        b.Property(a => a.Id).ValueGeneratedNever();
-        b.Property(a => a.Name).HasMaxLength(200);
-        b.Property(a => a.Price).HasPrecision(12, 2);
-        b.Property(a => a.Change).HasConversion<string>().HasMaxLength(16);
-        b.Property(a => a.MessageId).HasMaxLength(128);
-        b.HasIndex(a => a.MessageId).IsUnique();
-        b.HasIndex(a => new { a.ProductId, a.OccurredAtUtc });
-    }
-}
 
 internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
 {

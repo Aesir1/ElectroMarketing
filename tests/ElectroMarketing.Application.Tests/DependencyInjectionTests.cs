@@ -1,5 +1,4 @@
 using ElectroMarketing.Application.Documents;
-using ElectroMarketing.Application.Products;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +11,6 @@ public class DependencyInjectionTests
     {
         var services = new ServiceCollection().AddApplication(Substitute.For<IConfiguration>());
 
-        services.ShouldContain(d => d.ServiceType == typeof(ProductService));
         services.ShouldContain(d => d.ServiceType == typeof(DocumentService));
         services.ShouldContain(d => d.ServiceType == typeof(TimeProvider));
     }

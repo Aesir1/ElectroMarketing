@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ElectroMarketing.Auth.Persistence.Migrations
 {
     [DbContext(typeof(AuthDbContext))]
-    [Migration("20260925231542_InitialAuth")]
-    partial class InitialAuth
+    [Migration("20261122175843_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

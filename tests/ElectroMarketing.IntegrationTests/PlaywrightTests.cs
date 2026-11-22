@@ -12,9 +12,9 @@ public sealed class PlaywrightTests(StackFixture stack)
         var ct = TestContext.Current.CancellationToken;
         var web = stack.App.GetEndpoint("web", "http");
         var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (!File.Exists(Path.Combine(root.FullName, "ElectroMarketing.sln")))
+        while (!File.Exists(Path.Combine(root.FullName, "ElectroMarketing.slnx")))
         {
-            root = root.Parent ?? throw new DirectoryNotFoundException("ElectroMarketing.sln not found");
+            root = root.Parent ?? throw new DirectoryNotFoundException("ElectroMarketing.slnx not found");
         }
 
         var start = new ProcessStartInfo("bun", "run test:e2e")

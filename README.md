@@ -1,47 +1,33 @@
 # ElectroMarketing
 
-ElectroMarketing receives container temperature events over a webhook, stores every raw payload in S3-compatible
-object storage, queues it in RabbitMQ, and persists it in PostgreSQL (always in °C). Signed-in users browse
-containers and their readings in a Next.js front end. The solution also carries the platform-template
-samples: Products (generic CRUD repository, outbox, audit consumer), Documents (uploads/downloads streamed through the Api; MinIO is never public)
-and a RabbitMQ queue admin page.
+A marketing app, built in four milestones:
+
+1. CSV contact import into categories, with per-file provenance and upsert.
+2. Contact lists (from an import lot, or hand-picked through a full-text search).
+3. Campaigns over E-Mail / SMS / Post (PDF + QR) with short random tracking links.
+4. Insights per campaign (rates, timing, response latency).
+
+Scaffolded from the DataHub platform template: Documents (uploads/downloads streamed through the Api; MinIO is
+never public), Keycloak auth, outbox + RabbitMQ and a queue admin page.
 
 ```
-sender ──POST /api/webhooks/container──▶ webhook (Azure Functions) ──▶ MinIO webhooks/container/<timestamp>.json
-                                              │
-                                              └─▶ RabbitMQ exchange "webhooks" ──▶ Api WebhookInboxConsumer ──▶ PostgreSQL
 browser ──▶ web (Next.js, Auth.js) ──/api/graphql (BFF, bearer)──▶ Api (HotChocolate) ──▶ PostgreSQL
 ```
 
 ## Quickstart
 
-1. Install Docker, the .NET 10 SDK, [Bun](https://bun.sh), Node.js 22 and Azure Functions Core Tools v4
-   (`npm i -g azure-functions-core-tools@4`). `bun` and `func` must be on the PATH your IDE sees
-   (for a desktop-launched Rider that is `~/.profile`, e.g. link them into `~/.local/bin`).
+1. Install Docker, the .NET 10 SDK, [Bun](https://bun.sh) and Node.js 22. `bun` must be on the PATH your IDE sees
+   (for a desktop-launched Rider that is `~/.profile`, e.g. link it into `~/.local/bin`).
 2. `dotnet tool restore && (cd web && bun install)` and trust the HTTPS dev certificate once:
    `dotnet dev-certs https --trust` (on Linux this covers .NET and the Chrome/Firefox NSS stores; curl needs
    `--cacert ~/.aspnet/dev-certs/trust/*.pem`).
 3. `dotnet run --project aspire/ElectroMarketing.AppHost` (launch profile `https`, dashboard https://localhost:17180) and
    open the dashboard link it prints. The `http` profile still exists for the dashboard only.
 4. In the dashboard start **dbutils-seed** (resets and seeds App, Auth and the Keycloak dev users).
-5. Open https://localhost:3000 and sign in as `user@local.test` / `User123!` (or `admin@local.test` / `Admin123!`
-   for the queue admin page). Dev passwords and secrets are AppHost parameters in
+5. Open https://localhost:3000 and sign in as `user@local.test` / `34b11a79a75c2d2324e7e3e72c6fb36a` (or `admin@local.test` / `d605432b54bd51c214494ac5fc1fd9f8`
+   for the queue admin page). These are dev-only values; passwords and secrets are AppHost parameters in
    `aspire/ElectroMarketing.AppHost/appsettings.json`; override them with user secrets or a git-ignored
    `appsettings.User.json`.
-
-Send a signed webhook (secret = parameter `webhook-hmac-secret`):
-
-```bash
-body='{"containerId":"MSCU1234567","readings":[{"timestamp":"2026-09-25T10:00:00Z","value":41,"unit":"F"}]}'
-ts=$(date +%s); sig=$(printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac electromarketing-hmac-dev-secret -hex | awk '{print $NF}')
-curl -i --cacert ~/.aspnet/dev-certs/trust/*.pem -X POST https://localhost:7071/api/webhooks/container \
-  -H "X-Webhook-Timestamp: $ts" -H "X-Webhook-Signature: sha256=$sig" -H "X-Webhook-Id: demo-1" -d "$body"
-```
-
-Payload: `{"containerId": string, "readings": [{"timestamp": ISO-8601, "value": number, "unit": "C"|"F"|"K"}]}`.
-Optional headers: `X-Webhook-Id` (message-id, duplicates are dropped) and `X-Webhook-Event`
-(routing key `webhook.<sender>.<event>`, default `received`). Bearer senders use a Keycloak
-client-credentials token of client `webhook-container` (audience `webhook`).
 
 ## Resources (Aspire AppHost)
 
@@ -51,15 +37,13 @@ client-credentials token of client `webhook-container` (audience `webhook`).
 | keycloak | 8080 | realm `electromarketing` imported from `aspire/ElectroMarketing.AppHost/keycloak/realms`, theme `electromarketing` |
 | minio | 9000 / 9001 | image `cgr.dev/chainguard/minio` (MinIO no longer publishes to Docker Hub) |
 | rabbitmq | 5672 / 15672 | management plugin |
-| storage (Azurite) | dynamic | Functions host state only |
 | dbutils-migrate | — | `migrate --context All`, runs before the Api |
 | dbutils-seed | — | `reseed`, explicit start (destructive) |
 | api | https 5101, http 5100 | GraphQL at `/graphql`, `/health`, `/alive` |
-| webhook | https 7071 | `/api/webhooks/{sender}`, `/api/health`, `/api/alive` |
 | web | https 3000 | dashboard command **Regenerate GraphQL types** |
 
 HTTPS uses the ASP.NET Core dev certificate. The AppHost exports it on start to the git-ignored
-`aspire/ElectroMarketing.AppHost/.certs/` (PFX for Azure Functions Core Tools, PEM for Next.js). Keycloak, MinIO and
+`aspire/ElectroMarketing.AppHost/.certs/` (PEM for Next.js). Keycloak, MinIO and
 RabbitMQ stay on plain HTTP on localhost.
 
 ## Observability
@@ -70,7 +54,7 @@ configuration in `docker/` at the repository root, shared with `compose.observab
 | Resource | Role |
 | --- | --- |
 | grafana | http://localhost:3001 (`admin` / parameter `grafana-admin-password`); dashboards and alert rules in folder *ElectroMarketing* |
-| alloy | OTLP collector on localhost:4317 (gRPC) / 4318 (HTTP); tails container logs; probes api, webhook, web, Keycloak, MinIO |
+| alloy | OTLP collector on localhost:4317 (gRPC) / 4318 (HTTP); tails container logs; probes api, web, Keycloak, MinIO |
 | prometheus · loki · tempo | metrics · logs · traces (retention 30 d · 7 d · 2 d) |
 | cadvisor · postgres-exporter | per-container resources · PostgreSQL (`pg_stat_statements` is preloaded) |
 
@@ -90,11 +74,10 @@ observability) and the Keycloak realm/theme under `aspire/ElectroMarketing.AppHo
 | --- | --- | --- |
 | `APP_DOMAIN` | web | the Api is not public; web's BFF routes (`/api/graphql`, `/api/documents/*`, `/api/branding/*`) call it |
 | `AUTH_DOMAIN` | keycloak | `/admin` answers 404; the admin console is on the tunnel |
-| `HOOKS_DOMAIN` | webhook | only `/api/webhooks/*` and `/api/health` |
 
 MinIO has no public host and is not on Caddy's network. All buckets are private: document bytes go
-browser → web → Api → MinIO (the Api checks ownership, type and the 25 MB limit), branding assets are
-served by the Api at `/api/branding/<key>`, and raw webhook payloads are written by the webhook.
+browser → web → Api → MinIO (the Api checks ownership, type and the 25 MB limit) and branding assets are
+served by the Api at `/api/branding/<key>`.
 
 Networks: `ingress` (Caddy only; 80/443 and the only route to the Internet), `proxy` and `backend`
 (internal: no gateway, no NAT), `observability` (internal), and `tunnel` (Grafana and the Keycloak admin
@@ -111,7 +94,6 @@ because stock Caddy has no rate limiting. Zones in `docker/caddy/Caddyfile`, all
 | --- | --- | --- | --- | --- |
 | `app` | `APP_DOMAIN` | all | 1000 req / 10s | 26MB (documents ≤ 25MB) |
 | `auth_login` | `AUTH_DOMAIN` | `/realms/electromarketing/protocol/openid-connect/token`, `/realms/electromarketing/login-actions/*` | 30 req / 1m | 1MB |
-| `hooks` | `HOOKS_DOMAIN` | `/api/webhooks/*` | 500 req / 10s | 5MB (= `ReceiveWebhook.MaxBodyBytes`) |
 
 How it behaves: a **sliding window per IP, not a ban**. Requests over the limit get `429 Too Many
 Requests` with a `Retry-After` header; as soon as enough of the window has slid past, the same IP is
@@ -120,13 +102,11 @@ Counters live in Caddy's memory, so a container restart clears them.
 
 Why these numbers: Keycloak saturates first under load (~600 VU knee, load tests 2026-10-15) and a
 real user needs a handful of token requests per minute — 30/1m kills password sprays and login floods
-at the edge (verified on prod 2026-10-16: login #28 in a minute got 429, see `loadtest/RESULTS.md`
-runs 14–15). The webhook consumer drains ~100–120 msg/s in total, so 50 req/s sustained per sender is
-more than any legitimate source needs. Caveat (noted in the Caddyfile): per-IP keys treat a NAT'd
+at the edge. Caveat (noted in the Caddyfile): per-IP keys treat a NAT'd
 office as one client — per-user keys would need auth at the edge.
 
 Least privilege: the api connects as a DML-only role (`docker/postgres-init`), migrations run as the owner
-in the one-shot `dbutils-migrate`, and the api and webhook each get their own MinIO account scoped to their
+in the one-shot `dbutils-migrate`, and the api gets its own MinIO account scoped to its
 buckets (`docker/minio-init`). `dbutils-seed` upserts master data and the realm's login theme and default
 role; it creates no users.
 
@@ -141,18 +121,14 @@ docker compose -f compose.prod.yaml cp caddy:/data/caddy/pki/authorities/local/r
 certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Caddy Local Authority (ElectroMarketing)" -i ./caddy-root.crt
 ```
 
-Then open https://app.electromarketing.localhost and register, or create users in the admin console
+Then open https://app.electromarketing.localhost, or create users in the admin console
 (http://localhost:8081/admin/). Caddy needs ports 80 (redirect to HTTPS, ACME) and 443; if another
 web server holds 80 locally, stop it or move `HTTP_PORT`.
-
-A real server is prepared, deployed and rolled back with [`server-provision/`](server-provision/README.md):
-`provision.sh` hardens a fresh Ubuntu server and generates its `.env`, the `deploy` and `rollback`
-workflows ship releases, and `server-provision/tests/` checks the security features.
 
 ## Solution layout
 
 ```
-src/     Domain · Application · Infrastructure · Auth · DbUtils · Api · Webhook · ServiceDefaults
+src/     Domain · Application · Infrastructure · Auth · DbUtils · Api · ServiceDefaults
 aspire/  ElectroMarketing.AppHost
 tests/   <Project>.Tests for every production project + ElectroMarketing.IntegrationTests (Aspire.Hosting.Testing)
 web/     Next.js (App Router, Bun, Tailwind v4, Auth.js, GraphQL Code Generator)
@@ -192,8 +168,7 @@ Example: an `Invoice` entity with GraphQL CRUD and a page.
    `Persistence/Configurations`, then `dotnet ef migrations add AddInvoices ...` (above).
 3. **Repository** – nothing to do: `IRepository<Invoice, Guid>` is registered open-generic. Only when behaviour
    differs, add `IInvoiceRepository : IRepository<Invoice, Guid>` in Application and
-   `InvoiceRepository : Repository<Invoice, Guid>` in Infrastructure overriding the virtual members
-   (see `ProductRepository`), and register it in `Infrastructure/DependencyInjection.cs`.
+   `InvoiceRepository : Repository<Invoice, Guid>` in Infrastructure overriding the virtual members, and register it in `Infrastructure/DependencyInjection.cs`.
 4. **Use case** – `InvoiceService : CrudService<Invoice, Guid, CreateInvoiceDto, UpdateInvoiceDto>` in
    Application with DataAnnotations on the DTOs; register it in `Application/DependencyInjection.cs`.
 5. **Permissions** – add `Permissions.Invoices.Read/Write` in `src/ElectroMarketing.Auth/Permissions.cs` (a policy is
@@ -202,7 +177,7 @@ Example: an `Invoice` entity with GraphQL CRUD and a page.
    `[UsePaging][UseProjection][UseFiltering][UseSorting]` over `IRepository.Query()`) and
    `InvoiceMutations.cs` (`[ExtendObjectType(typeof(RootMutation))]`, `[Authorize(Policy = ...)]`,
    `[Error<ValidationError>]` etc.). They are registered by the source generator; `Program.cs` never changes.
-   Reference fields use a `[DataLoader]` (see `ProductDataLoaders`).
+   Reference fields use a `[DataLoader]`.
 7. **Contract** – `dotnet run --project src/ElectroMarketing.Api -- schema export --output web/schema.graphql`, then
    `cd web && bun run codegen` (or the dashboard command). Commit both; CI fails on any diff.
 8. **Page** – write the operation with `graphql(...)` in the component, call it through `execute()` from
@@ -218,7 +193,7 @@ Example: an `Invoice` entity with GraphQL CRUD and a page.
 | Unit (backend) | `dotnet test --project tests/ElectroMarketing.Domain.Tests` / `...Application.Tests` | no |
 | Unit (frontend) | `cd web && bun run test` (`test:coverage` for v8 coverage) | no |
 | Contract | `tests/ElectroMarketing.Api.Tests` `SchemaTests` + CI codegen diff | no |
-| Integration | `dotnet test --project tests/ElectroMarketing.<Infrastructure\|Auth\|DbUtils\|Api\|Webhook>.Tests` | yes |
+| Integration | `dotnet test --project tests/ElectroMarketing.<Infrastructure\|Auth\|DbUtils\|Api>.Tests` | yes |
 | End to end | `dotnet test --project tests/ElectroMarketing.IntegrationTests` (boots the AppHost, seeds, runs Playwright) | yes |
 
 The end-to-end suite uses the same fixed ports as a running AppHost; stop your dev AppHost first.
@@ -229,4 +204,4 @@ Coverage gate: `python3 build/coverage-gate.py 0.8 ElectroMarketing.Domain,Elect
 `.github/workflows/ci.yml`: build with warnings as errors → unit tests + coverage gate → contract check
 (schema export + codegen diff, `graphql-inspector diff` on PRs, `has-pending-model-changes` per context) →
 gitleaks → Testcontainers integration tests → Aspire + Playwright end to end → multi-arch images
-(`src/ElectroMarketing.Api/Dockerfile`, `src/ElectroMarketing.DbUtils/Dockerfile`, `src/ElectroMarketing.Webhook/Dockerfile`, `web/Dockerfile`).
+(`src/ElectroMarketing.Api/Dockerfile`, `src/ElectroMarketing.DbUtils/Dockerfile`, `web/Dockerfile`).

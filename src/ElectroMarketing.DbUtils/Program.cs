@@ -16,7 +16,7 @@ var force = new Option<bool>("--force") { Description = "Allow reset outside Dev
 var fixtures = new Option<bool>("--fixtures") { Description = "Insert deterministic fixture data (fixed ids)." };
 var masterData = new Option<bool>("--master-data") { Description = "Upsert reference data from embedded JSON." };
 var keycloakUsers = new Option<bool>("--keycloak-users") { Description = "Create dev users through the Keycloak Admin API (includes --keycloak-realm)." };
-var keycloakRealm = new Option<bool>("--keycloak-realm") { Description = "Production-safe realm settings: login theme and default user role." };
+var keycloakRealm = new Option<bool>("--keycloak-realm") { Description = "Realm settings, safe for production: login theme and default user role." };
 var vacuum = new Option<bool>("--vacuum-analyze") { Description = "VACUUM (ANALYZE) every table of the context." };
 var purge = new Option<bool>("--purge-soft-deleted") { Description = "Hard-delete soft-deleted rows past --older-than." };
 var olderThan = new Option<string>("--older-than") { Description = "Retention for --purge-soft-deleted, e.g. 90d or 12h.", DefaultValueFactory = _ => "90d" };

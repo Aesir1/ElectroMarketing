@@ -31,7 +31,7 @@ groups:
   folder: ElectroMarketing
   interval: 1m
   rules:
-  - uid: dh-app-down
+  - uid: em-app-down
     title: Application unavailable
     condition: THRESHOLD
     data:
@@ -84,7 +84,7 @@ groups:
       severity: critical
       stack: electromarketing
     isPaused: false
-  - uid: dh-app-error-rate
+  - uid: em-app-error-rate
     title: High application error rate
     condition: THRESHOLD
     data:
@@ -137,7 +137,7 @@ groups:
       severity: critical
       stack: electromarketing
     isPaused: false
-  - uid: dh-app-latency
+  - uid: em-app-latency
     title: High application p95 latency
     condition: THRESHOLD
     data:
@@ -190,7 +190,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-app-cpu
+  - uid: em-app-cpu
     title: High application CPU
     condition: THRESHOLD
     data:
@@ -243,7 +243,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-app-memory
+  - uid: em-app-memory
     title: High application memory
     condition: THRESHOLD
     data:
@@ -296,7 +296,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-app-exceptions
+  - uid: em-app-exceptions
     title: Excessive exceptions
     condition: THRESHOLD
     data:
@@ -353,7 +353,7 @@ groups:
   folder: ElectroMarketing
   interval: 1m
   rules:
-  - uid: dh-pg-down
+  - uid: em-pg-down
     title: PostgreSQL unavailable
     condition: THRESHOLD
     data:
@@ -405,7 +405,7 @@ groups:
       severity: critical
       stack: electromarketing
     isPaused: false
-  - uid: dh-pg-connections-high
+  - uid: em-pg-connections-high
     title: High PostgreSQL connection usage
     condition: THRESHOLD
     data:
@@ -458,7 +458,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-pg-connections-exhausted
+  - uid: em-pg-connections-exhausted
     title: PostgreSQL connections nearly exhausted
     condition: THRESHOLD
     data:
@@ -510,7 +510,7 @@ groups:
       severity: critical
       stack: electromarketing
     isPaused: false
-  - uid: dh-pg-size
+  - uid: em-pg-size
     title: PostgreSQL database large
     condition: THRESHOLD
     data:
@@ -562,7 +562,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-pg-query-latency
+  - uid: em-pg-query-latency
     title: High PostgreSQL query latency
     condition: THRESHOLD
     data:
@@ -615,7 +615,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-pg-deadlocks
+  - uid: em-pg-deadlocks
     title: PostgreSQL deadlocks
     condition: THRESHOLD
     data:
@@ -673,7 +673,7 @@ groups:
   folder: ElectroMarketing
   interval: 1m
   rules:
-  - uid: dh-minio-down
+  - uid: em-minio-down
     title: MinIO unavailable
     condition: THRESHOLD
     data:
@@ -725,7 +725,7 @@ groups:
       severity: critical
       stack: electromarketing
     isPaused: false
-  - uid: dh-minio-storage
+  - uid: em-minio-storage
     title: MinIO storage almost full
     condition: THRESHOLD
     data:
@@ -778,7 +778,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-minio-errors
+  - uid: em-minio-errors
     title: High MinIO error rate
     condition: THRESHOLD
     data:
@@ -831,7 +831,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-minio-latency
+  - uid: em-minio-latency
     title: High MinIO request latency
     condition: THRESHOLD
     data:
@@ -888,7 +888,7 @@ groups:
   folder: ElectroMarketing
   interval: 1m
   rules:
-  - uid: dh-container-restarting
+  - uid: em-container-restarting
     title: Container restarting repeatedly
     condition: THRESHOLD
     data:
@@ -941,7 +941,7 @@ groups:
       severity: critical
       stack: electromarketing
     isPaused: false
-  - uid: dh-container-cpu
+  - uid: em-container-cpu
     title: Container using high CPU
     condition: THRESHOLD
     data:
@@ -994,7 +994,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-container-memory
+  - uid: em-container-memory
     title: Container using high memory
     condition: THRESHOLD
     data:
@@ -1047,7 +1047,7 @@ groups:
       severity: warning
       stack: electromarketing
     isPaused: false
-  - uid: dh-disk-full
+  - uid: em-disk-full
     title: Host disk almost full
     condition: THRESHOLD
     data:
@@ -1099,7 +1099,7 @@ groups:
       severity: critical
       stack: electromarketing
     isPaused: false
-  - uid: dh-target-down
+  - uid: em-target-down
     title: Monitoring target down
     condition: THRESHOLD
     data:

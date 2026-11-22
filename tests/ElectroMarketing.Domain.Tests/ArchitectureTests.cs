@@ -6,7 +6,7 @@ namespace ElectroMarketing.Domain.Tests;
 /// <summary>Layer references point inward only (BE-4).</summary>
 public class ArchitectureTests
 {
-    private static readonly Assembly Domain = typeof(Containers.Container).Assembly;
+    private static readonly Assembly Domain = typeof(Documents.Document).Assembly;
     private static readonly Assembly Application = typeof(Application.DependencyInjection).Assembly;
     private static readonly Assembly Infrastructure = typeof(Infrastructure.DependencyInjection).Assembly;
     private static readonly Assembly Auth = typeof(Auth.DependencyInjection).Assembly;

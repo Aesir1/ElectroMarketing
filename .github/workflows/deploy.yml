@@ -93,7 +93,6 @@ jobs:
     env:
       APP_DOMAIN: ${{ vars.APP_DOMAIN }}
       AUTH_DOMAIN: ${{ vars.AUTH_DOMAIN }}
-      HOOKS_DOMAIN: ${{ vars.HOOKS_DOMAIN }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
     steps:

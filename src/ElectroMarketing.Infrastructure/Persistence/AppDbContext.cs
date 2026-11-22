@@ -1,26 +1,13 @@
 using System.Linq.Expressions;
 using ElectroMarketing.Domain.Abstractions;
-using ElectroMarketing.Domain.Containers;
 using ElectroMarketing.Domain.Documents;
-using ElectroMarketing.Domain.Products;
 using Microsoft.EntityFrameworkCore;
 
 namespace ElectroMarketing.Infrastructure.Persistence;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<Container> Containers => Set<Container>();
-
-    public DbSet<Temperature> Temperatures => Set<Temperature>();
-
-    public DbSet<Product> Products => Set<Product>();
-
-    public DbSet<ProductAudit> ProductAudits => Set<ProductAudit>();
-
     public DbSet<Document> Documents => Set<Document>();
-
-    /// <summary>Keyless view defined in Persistence/Sql/ContainerSummaries.sql.</summary>
-    public DbSet<ContainerSummary> ContainerSummaries => Set<ContainerSummary>();
 
     public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
 

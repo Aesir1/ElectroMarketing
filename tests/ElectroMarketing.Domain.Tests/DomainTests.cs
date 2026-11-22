@@ -1,7 +1,5 @@
-using ElectroMarketing.Domain.Abstractions;
 using ElectroMarketing.Domain.Documents;
 using ElectroMarketing.Domain.Exceptions;
-using ElectroMarketing.Domain.Products;
 
 namespace ElectroMarketing.Domain.Tests;
 
@@ -10,19 +8,7 @@ public class DomainTests
     [Fact]
     public void New_entities_get_uuid_v7_ids()
     {
-        new Product { Name = "a", Sku = "b" }.Id.Version.ShouldBe(7);
         new Document { FileName = "a", ContentType = "b" }.Id.Version.ShouldBe(7);
-    }
-
-    [Fact]
-    public void Product_change_event_carries_current_state()
-    {
-        var product = new Product { Name = "Reefer", Sku = "RF-1", Price = 5m };
-
-        var changed = product.ToChangedEvent(ChangeType.Updated).ShouldBeOfType<ProductChanged>();
-
-        (changed.ProductId, changed.Change, changed.Name, changed.Sku, changed.Price).ShouldBe((product.Id, ChangeType.Updated, "Reefer", "RF-1", 5m));
-        product.EventName.ShouldBe("product");
     }
 
     [Fact]
@@ -39,7 +25,7 @@ public class DomainTests
     [Fact]
     public void Exceptions_have_safe_messages()
     {
-        NotFoundException.For<Product>(42).Message.ShouldBe("Product 42 was not found.");
+        NotFoundException.For<Document>(42).Message.ShouldBe("Document 42 was not found.");
         new ForbiddenException().Message.ShouldBe("You are not allowed to do this.");
         var validation = new ValidationException(new Dictionary<string, string[]> { ["Name"] = ["required"], ["Sku"] = ["bad", "short"] });
         validation.Message.ShouldBe("Validation failed: Name: required; Sku: bad, short");

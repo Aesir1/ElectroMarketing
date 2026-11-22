@@ -1,5 +1,4 @@
 using ElectroMarketing.Api.GraphQl;
-using ElectroMarketing.Api.Messaging;
 using ElectroMarketing.Infrastructure.Storage;
 
 namespace ElectroMarketing.Api;
@@ -11,7 +10,6 @@ public static class DependencyInjection
     {
         _ = configuration;
         services.AddHostedService<BucketInitializer>();
-        services.AddHostedService<ProductAuditConsumer>();
         services.AddElectroMarketingGraphQl(isDevelopment);
         return services;
     }

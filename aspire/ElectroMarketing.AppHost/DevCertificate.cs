@@ -4,7 +4,7 @@ namespace ElectroMarketing.AppHost;
 
 /// <summary>
 /// Exports the ASP.NET Core HTTPS development certificate (the one <c>dotnet dev-certs https --trust</c> trusts)
-/// for processes that cannot read it from the .NET store: Azure Functions Core Tools needs a PFX, Next.js a
+/// for processes that cannot read it from the .NET store: Next.js needs a
 /// PEM certificate and key, and Node a CA file for calling the Api over HTTPS.
 /// </summary>
 internal sealed record DevCertificate(string PfxPath, string PemPath, string KeyPath, string Password)

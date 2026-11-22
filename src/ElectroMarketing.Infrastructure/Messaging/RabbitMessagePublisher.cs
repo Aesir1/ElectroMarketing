@@ -37,6 +37,9 @@ public sealed class RabbitMessagePublisher(IConnection connection) : IMessagePub
         await using var channel = await connection.CreateChannelAsync(
             new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), ct);
 
+        // Idempotent: the exchanges must exist even when no consumer has declared them yet.
+        await MessagingTopology.DeclareAsync(channel, ct);
+
         var headers = new Dictionary<string, object?>();
         MessagingTelemetry.Inject(activity ?? Activity.Current, headers);
         var properties = new BasicProperties

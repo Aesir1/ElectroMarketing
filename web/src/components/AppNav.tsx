@@ -16,8 +16,6 @@ const ViewerDocument = graphql(`
 `);
 
 const links = [
-  { href: "/app", label: "Containers", permission: "containers.read" },
-  { href: "/app/products", label: "Products", permission: "products.read" },
   { href: "/app/documents", label: "Documents", permission: "documents.read" },
   { href: "/app/admin/queues", label: "Admin · Queues", permission: "queues.manage" },
 ] as const;
