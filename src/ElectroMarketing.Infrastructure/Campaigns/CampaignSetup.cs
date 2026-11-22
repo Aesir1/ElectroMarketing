@@ -18,6 +18,7 @@ public static class CampaignSetup
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<CampaignOptions>>().Value);
         services.AddSingleton<CampaignContent>();
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        services.AddSingleton<ILetterRenderer, QuestLetterRenderer>();
         if (string.IsNullOrEmpty(configuration[$"{TwilioOptions.Section}:{nameof(TwilioOptions.AccountSid)}"]))
         {
             if (isDevelopment)

@@ -4,6 +4,7 @@
     <PackageReference Include="Testcontainers.Minio" />
     <PackageReference Include="Testcontainers.RabbitMq" />
     <PackageReference Include="Respawn" />
+    <PackageReference Include="PdfPig" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <ProjectReference Include="..\..\src\ElectroMarketing.Infrastructure\ElectroMarketing.Infrastructure.csproj" />
   </ItemGroup>
