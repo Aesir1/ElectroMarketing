@@ -122,4 +122,29 @@ public sealed class ImportServiceTests(PostgresFixture db) : IAsyncLifetime
         failed.Status.ShouldBe(ImportStatus.Failed);
         (await read.ContactImports.CountAsync(Ct)).ShouldBe(1);
     }
+
+    [Fact]
+    public async Task Key_freed_by_one_row_is_taken_by_a_new_contact_in_the_same_chunk()
+    {
+        await ImportAsync("E-Mail;Telefon\ne1@x.de;0170 1111111\n");
+
+        var batch = await ImportAsync("E-Mail;Telefon\ne2@x.de;0170 1111111\ne1@x.de;0170 2222222\n");
+
+        batch.Status.ShouldBe(ImportStatus.Done);
+        (batch.CreatedCount, batch.UpdatedCount).ShouldBe((1, 1));
+        await using var ctx = db.Create();
+        (await ctx.Contacts.SingleAsync(c => c.PhoneE164 == "+491701111111", Ct)).Email.ShouldBe("e2@x.de");
+        (await ctx.Contacts.SingleAsync(c => c.Email == "e1@x.de", Ct)).PhoneE164.ShouldBe("+491702222222");
+    }
+
+    [Fact]
+    public async Task Contact_created_by_an_earlier_row_is_matched_by_a_later_row_in_the_same_chunk()
+    {
+        var batch = await ImportAsync("E-Mail;Name\na@x.de;A\na@x.de;B\n");
+
+        batch.Status.ShouldBe(ImportStatus.Done);
+        await using var ctx = db.Create();
+        var contact = await ctx.Contacts.Include(c => c.Imports).SingleAsync(Ct);
+        contact.Imports.OrderBy(i => i.RowNumber).Select(i => i.Change).ShouldBe([ContactChange.Created, ContactChange.Updated]);
+    }
 }

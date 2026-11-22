@@ -111,8 +111,10 @@ public sealed class ImportService(
         await store.SaveAsync(ct);
     }
 
-    private async Task ImportChunkAsync(Guid batchId, RawRow[] chunk, CultureInfo culture, ImportLog log, CancellationToken ct)
+    private async Task ImportChunkAsync(Guid batchId, RawRow[] chunk, CultureInfo culture, ImportLog total, CancellationToken ct)
     {
+        // Counted per chunk and merged only after the chunk is saved, so a failed batch reports committed rows only.
+        var log = new ImportLog();
         var rows = new List<ContactRow>(chunk.Length);
         foreach (var raw in chunk)
         {
@@ -179,6 +181,7 @@ public sealed class ImportService(
         }
 
         await store.SaveAsync(ct);
+        total.Add(log);
     }
 
     private static void Reindex(Dictionary<string, Contact> index, string? oldKey, string? newKey, Contact contact)
@@ -258,6 +261,17 @@ public sealed class ImportService(
             {
                 errors.Add(new ImportRowError { Row = row, Message = message });
             }
+        }
+
+        public void Add(ImportLog other)
+        {
+            Rows += other.Rows;
+            Skipped += other.Skipped;
+            created += other.created;
+            updated += other.updated;
+            unchanged += other.unchanged;
+            errorCount += other.errorCount;
+            errors.AddRange(other.errors.Take(ImportBatch.MaxStoredErrors - errors.Count));
         }
 
         public void Count(ContactChange change)
