@@ -29,6 +29,11 @@ public sealed class ContactSearchGraphQlTests(ApiFactory api)
 
         nodes.ShouldBe(["Alpha", "Mid", "Zeta"]);
 
+        var viaVariable = (await client.Gql(
+            "query($order: [ContactSortInput!]) { contacts(filter: { search: \"" + tag + "\" }, order: $order) { nodes { city } } }",
+            new { order = new[] { new { city = "ASC" } } })).Data()["contacts"]!["nodes"]!.AsArray().Select(n => n!["city"]!.GetValue<string>());
+        viaVariable.ShouldBe(["Alpha", "Mid", "Zeta"]);
+
         var byName = (await client.Gql($$"""
             { contacts(filter: { search: "{{tag}}" }) { nodes { city } } }
             """)).Data()["contacts"]!["nodes"]!.AsArray().Select(n => n!["city"]!.GetValue<string>());
