@@ -1,8 +1,11 @@
 import { cleanup } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import { server } from "./src/test/server";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => {
+  vi.stubGlobal("confirm", () => true);
+  server.listen({ onUnhandledRequest: "error" });
+});
 afterEach(() => {
   server.resetHandlers();
   cleanup();

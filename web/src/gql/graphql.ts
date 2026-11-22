@@ -10,6 +10,30 @@ export type AddToContactListInput = {
   listId: string;
 };
 
+export type CampaignDtoInput = {
+  contactListId?: string | null | undefined;
+  emailBody?: string | null | undefined;
+  emailSubject?: string | null | undefined;
+  landingBody?: string | null | undefined;
+  landingTitle?: string | null | undefined;
+  letterBody?: string | null | undefined;
+  name: string;
+  sendEmail: boolean;
+  sendPost: boolean;
+  sendSms: boolean;
+  smsText?: string | null | undefined;
+};
+
+export type CampaignStatus =
+  | 'DRAFT'
+  | 'SENDING'
+  | 'SENT';
+
+export type Channel =
+  | 'EMAIL'
+  | 'POST'
+  | 'SMS';
+
 /** CSV header name for each contact field; null when the file has no such column. */
 export type ColumnMappingInput = {
   city?: string | null | undefined;
@@ -43,6 +67,10 @@ export type ContactFilterInput = {
   search?: string | null | undefined;
 };
 
+export type CreateCampaignInput = {
+  campaign: CampaignDtoInput;
+};
+
 export type CreateCategoryInput = {
   name: string;
 };
@@ -73,6 +101,12 @@ export type ImportStatus =
   | 'FAILED'
   | 'PENDING'
   | 'RUNNING';
+
+export type MessageStatus =
+  | 'FAILED'
+  | 'QUEUED'
+  | 'SENT'
+  | 'SKIPPED';
 
 export type PreviewImportInput = {
   documentId: string;
@@ -109,6 +143,10 @@ export type RequestDocumentUploadInput = {
   sizeBytes: number;
 };
 
+export type StartCampaignInput = {
+  id: string;
+};
+
 export type StartImportInput = {
   categoryId: string;
   culture: string;
@@ -116,10 +154,66 @@ export type StartImportInput = {
   mapping: ColumnMappingInput;
 };
 
+export type UpdateCampaignInput = {
+  campaign: CampaignDtoInput;
+  id: string;
+};
+
 export type ViewerQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type ViewerQuery = { viewer: { email: string | null, permissions: Array<string> } };
+
+export type CampaignEditorQueryVariables = Exact<{
+  id: string;
+}>;
+
+
+export type CampaignEditorQuery = { campaign: { id: string, name: string, status: CampaignStatus, contactListId: string | null, sendEmail: boolean, sendSms: boolean, sendPost: boolean, emailSubject: string | null, emailBody: string | null, smsText: string | null, letterBody: string | null, landingTitle: string | null, landingBody: string | null, startedAtUtc: string | null, finishedAtUtc: string | null, lettersReady: boolean } | null, contactLists: { nodes: Array<{ id: string, name: string, memberCount: number }> | null } | null };
+
+export type CampaignMessagesQueryVariables = Exact<{
+  id: string;
+  after?: string | null | undefined;
+}>;
+
+
+export type CampaignMessagesQuery = { campaignMessages: { totalCount: number, pageInfo: { hasNextPage: boolean, endCursor: string | null }, nodes: Array<{ id: string, channel: Channel, status: MessageStatus, token: string, sentAtUtc: string | null, error: string | null, contact: { id: string, name: string | null, email: string | null, phone: string | null } | null }> | null } | null };
+
+export type SaveCampaignMutationVariables = Exact<{
+  input: UpdateCampaignInput;
+}>;
+
+
+export type SaveCampaignMutation = { updateCampaign: { campaign: { id: string } | null, errors: Array<
+      | { __typename: 'ConcurrencyError', message: string }
+      | { __typename: 'ConflictError', message: string }
+      | { __typename: 'NotFoundError', message: string }
+      | { __typename: 'ValidationError', message: string, fields: Array<{ field: string, messages: Array<string> }> }
+    > | null } };
+
+export type StartCampaignMutationVariables = Exact<{
+  input: StartCampaignInput;
+}>;
+
+
+export type StartCampaignMutation = { startCampaign: { campaign: { id: string } | null, errors: Array<
+      | { __typename: 'ConcurrencyError', message: string }
+      | { __typename: 'ConflictError', message: string }
+      | { __typename: 'NotFoundError', message: string }
+      | { __typename: 'ValidationError', message: string, fields: Array<{ field: string, messages: Array<string> }> }
+    > | null } };
+
+export type CampaignsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type CampaignsQuery = { campaigns: { nodes: Array<{ id: string, name: string, status: CampaignStatus, sendEmail: boolean, sendSms: boolean, sendPost: boolean, createdAtUtc: string, startedAtUtc: string | null }> | null } | null };
+
+export type CreateCampaignMutationVariables = Exact<{
+  input: CreateCampaignInput;
+}>;
+
+
+export type CreateCampaignMutation = { createCampaign: { campaign: { id: string } | null, errors: Array<{ __typename: 'ValidationError', message: string }> | null } };
 
 export type ContactDetailQueryVariables = Exact<{
   id: string;
@@ -360,6 +454,133 @@ export const ViewerDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<ViewerQuery, ViewerQueryVariables>;
+export const CampaignEditorDocument = new TypedDocumentString(`
+    query CampaignEditor($id: UUID!) {
+  campaign(id: $id) {
+    id
+    name
+    status
+    contactListId
+    sendEmail
+    sendSms
+    sendPost
+    emailSubject
+    emailBody
+    smsText
+    letterBody
+    landingTitle
+    landingBody
+    startedAtUtc
+    finishedAtUtc
+    lettersReady
+  }
+  contactLists(first: 100) {
+    nodes {
+      id
+      name
+      memberCount
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<CampaignEditorQuery, CampaignEditorQueryVariables>;
+export const CampaignMessagesDocument = new TypedDocumentString(`
+    query CampaignMessages($id: UUID!, $after: String) {
+  campaignMessages(campaignId: $id, first: 100, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+      channel
+      status
+      token
+      sentAtUtc
+      error
+      contact {
+        id
+        name
+        email
+        phone
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<CampaignMessagesQuery, CampaignMessagesQueryVariables>;
+export const SaveCampaignDocument = new TypedDocumentString(`
+    mutation SaveCampaign($input: UpdateCampaignInput!) {
+  updateCampaign(input: $input) {
+    campaign {
+      id
+    }
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+      ... on ValidationError {
+        fields {
+          field
+          messages
+        }
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<SaveCampaignMutation, SaveCampaignMutationVariables>;
+export const StartCampaignDocument = new TypedDocumentString(`
+    mutation StartCampaign($input: StartCampaignInput!) {
+  startCampaign(input: $input) {
+    campaign {
+      id
+    }
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+      ... on ValidationError {
+        fields {
+          field
+          messages
+        }
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<StartCampaignMutation, StartCampaignMutationVariables>;
+export const CampaignsDocument = new TypedDocumentString(`
+    query Campaigns {
+  campaigns(first: 100) {
+    nodes {
+      id
+      name
+      status
+      sendEmail
+      sendSms
+      sendPost
+      createdAtUtc
+      startedAtUtc
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<CampaignsQuery, CampaignsQueryVariables>;
+export const CreateCampaignDocument = new TypedDocumentString(`
+    mutation CreateCampaign($input: CreateCampaignInput!) {
+  createCampaign(input: $input) {
+    campaign {
+      id
+    }
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<CreateCampaignMutation, CreateCampaignMutationVariables>;
 export const ContactDetailDocument = new TypedDocumentString(`
     query ContactDetail($id: UUID!) {
   contact(id: $id) {
