@@ -58,7 +58,10 @@ export function ImportsPage() {
   const load = useCallback(
     () =>
       execute(ImportBatchesDocument).then(
-        (d) => setBatches(d.importBatches?.nodes ?? []),
+        (d) => {
+          setBatches(d.importBatches?.nodes ?? []);
+          setError(null);
+        },
         (e: Error) => setError(e.message),
       ),
     [],
@@ -77,15 +80,23 @@ export function ImportsPage() {
   }, [busy, load]);
 
   async function showErrors(id: string) {
-    const d = await execute(ImportErrorsDocument, { id });
-    setOpenErrors({ id, errors: d.importBatches?.nodes?.[0]?.errors ?? [] });
+    try {
+      const d = await execute(ImportErrorsDocument, { id });
+      setOpenErrors({ id, errors: d.importBatches?.nodes?.[0]?.errors ?? [] });
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Imports</h1>
       <ImportWizard onStarted={load} />
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-error">
+          {error}
+        </p>
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left">

@@ -29,6 +29,12 @@ const CreateImportCategoryDocument = graphql(`
         ... on Error {
           message
         }
+        ... on ValidationError {
+          fields {
+            field
+            messages
+          }
+        }
       }
     }
   }
@@ -47,6 +53,12 @@ const RequestCsvUploadDocument = graphql(`
         __typename
         ... on Error {
           message
+        }
+        ... on ValidationError {
+          fields {
+            field
+            messages
+          }
         }
       }
     }
@@ -150,12 +162,16 @@ export function ImportWizard({ onStarted }: { onStarted: () => void }) {
   const [progress, setProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileKey, setFileKey] = useState(0);
 
-  useEffect(() => {
+  const loadCategories = () =>
     execute(ImportCategoriesDocument).then(
       (d) => setCategories(d.categories),
       (e: Error) => setError(e.message),
     );
+
+  useEffect(() => {
+    loadCategories();
   }, []);
 
   async function run(action: () => Promise<string | null>) {
@@ -181,7 +197,7 @@ export function ImportWizard({ onStarted }: { onStarted: () => void }) {
       if (!payload) return messageOf(requestDocumentUpload.errors) ?? "Upload refused.";
       await uploadWithProgress(payload.uploadUrl, file, setProgress);
       const { confirmDocumentUpload } = await execute(ConfirmCsvUploadDocument, { input: { id: payload.document.id } });
-      if (confirmDocumentUpload.errors?.length) return messageOf(confirmDocumentUpload.errors);
+      if (confirmDocumentUpload.errors?.length) return messageOf(confirmDocumentUpload.errors) ?? "Upload could not be confirmed.";
       const { previewImport } = await execute(PreviewImportDocument, { input: { documentId: payload.document.id } });
       const result = previewImport.csvPreview;
       if (!result) return messageOf(previewImport.errors) ?? "The file could not be read.";
@@ -197,16 +213,21 @@ export function ImportWizard({ onStarted }: { onStarted: () => void }) {
       if (!id) {
         if (!newCategory.trim()) return "Pick or create a category.";
         const { createCategory } = await execute(CreateImportCategoryDocument, { input: { name: newCategory } });
-        if (!createCategory.category) return messageOf(createCategory.errors);
+        if (!createCategory.category) return messageOf(createCategory.errors) ?? "Category could not be created.";
         id = createCategory.category.id;
       }
       const { startImport } = await execute(StartImportDocument, {
         input: { documentId: documentId!, categoryId: id, culture, mapping: mapping! },
       });
-      if (!startImport.importBatch) return messageOf(startImport.errors);
+      if (!startImport.importBatch) return messageOf(startImport.errors) ?? "Import could not be started.";
       setPreview(null);
+      setMapping(null);
       setDocumentId(null);
       setProgress(null);
+      setNewCategory("");
+      setCategoryId("");
+      setFileKey((k) => k + 1);
+      await loadCategories();
       onStarted();
       return null;
     });
@@ -217,6 +238,7 @@ export function ImportWizard({ onStarted }: { onStarted: () => void }) {
       <label className="block text-sm">
         CSV file
         <input
+          key={fileKey}
           type="file"
           accept=".csv,text/csv"
           disabled={busy}

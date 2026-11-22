@@ -151,7 +151,7 @@ export type CreateImportCategoryMutationVariables = Exact<{
 
 export type CreateImportCategoryMutation = { createCategory: { category: { id: string, name: string } | null, errors: Array<
       | { __typename: 'ConflictError', message: string }
-      | { __typename: 'ValidationError', message: string }
+      | { __typename: 'ValidationError', message: string, fields: Array<{ field: string, messages: Array<string> }> }
     > | null } };
 
 export type RequestCsvUploadMutationVariables = Exact<{
@@ -161,7 +161,7 @@ export type RequestCsvUploadMutationVariables = Exact<{
 
 export type RequestCsvUploadMutation = { requestDocumentUpload: { documentUploadPayload: { uploadUrl: string, document: { id: string } } | null, errors: Array<
       | { __typename: 'ForbiddenError', message: string }
-      | { __typename: 'ValidationError', message: string }
+      | { __typename: 'ValidationError', message: string, fields: Array<{ field: string, messages: Array<string> }> }
     > | null } };
 
 export type ConfirmCsvUploadMutationVariables = Exact<{
@@ -412,6 +412,12 @@ export const CreateImportCategoryDocument = new TypedDocumentString(`
       ... on Error {
         message
       }
+      ... on ValidationError {
+        fields {
+          field
+          messages
+        }
+      }
     }
   }
 }
@@ -429,6 +435,12 @@ export const RequestCsvUploadDocument = new TypedDocumentString(`
       __typename
       ... on Error {
         message
+      }
+      ... on ValidationError {
+        fields {
+          field
+          messages
+        }
       }
     }
   }

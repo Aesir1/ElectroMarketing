@@ -96,9 +96,11 @@ export function ContactDetailPage({ id }: { id: string }) {
             {data.contactHistory?.nodes?.map((h) => (
               <tr key={h.id} className="border-t border-border align-top">
                 <td className="px-2 py-1">
-                  <a href={`/api/documents/${h.importBatch?.documentId}/content`} className="underline">
-                    {h.importBatch?.fileName}
-                  </a>{" "}
+                  {h.importBatch && (
+                    <a href={`/api/documents/${h.importBatch.documentId}/content`} className="underline">
+                      {h.importBatch.fileName}
+                    </a>
+                  )}{" "}
                   (row {h.rowNumber})
                 </td>
                 <td className="px-2 py-1">{h.importBatch?.category?.name}</td>
