@@ -131,10 +131,10 @@ web server holds 80 locally, stop it or move `HTTP_PORT`.
 
 ## Campaigns & tracking
 
-- **Short links.** Every message carries a random token. Routes on the Api: `/{token}` (7-character short link, redirects and records a click), `/o/{token}` (open pixel), `/u/{token}` (unsubscribe, confirmed by POST) and `/landing/{token}` (landing page). Production needs a short domain routed by Caddy to the Api and set as `Tracking__BaseUrl` (compose: `TRACKING_DOMAIN`, see the table and rate-limit zone above).
+- **Short links.** Every message carries a random token. Routes on the Api: `/{token}` (7-character short link; records a click and redirects to the web landing page `/l/{token}`), `/o/{token}` (open pixel), `/u/{token}` (unsubscribe, confirmed by POST) and `/landing/{token}` (landing page). Production needs a short domain routed by Caddy to the Api and set as `Tracking__BaseUrl` (compose: `TRACKING_DOMAIN`, see the table and rate-limit zone above).
 - **E-mail in dev.** The AppHost runs Mailpit; sent mail shows up in its web UI. Nothing leaves your machine.
 - **SMS.** Set `Twilio__AccountSid`, `Twilio__AuthToken` and `Twilio__From` to send for real. Without them, development only logs the SMS (message and short link); outside development sending SMS fails loudly.
-- **Letters.** PDFs are rendered with QuestPDF under its Community license, which is free below the vendor's revenue threshold (USD 1M annual gross revenue at the time of writing). Check the [QuestPDF license](https://www.questpdf.com/license/) before commercial use above it.
+- **Letters.** The PDF download needs both `campaigns.read` and `contacts.read`. PDFs are rendered with QuestPDF under its Community license, which is free below the vendor's revenue threshold (USD 1M annual gross revenue at the time of writing). Check the [QuestPDF license](https://www.questpdf.com/license/) before commercial use above it.
 - **Single Api instance.** `CampaignDispatcher` runs inside the Api process and assumes exactly one Api instance. Do not scale the Api horizontally without moving dispatch to a leader-elected worker.
 - **Open accuracy.** E-mail opens are approximate: Apple Mail Privacy Protection and some clients pre-load the tracking pixel. Clicks, scans and unsubscribes are reliable. The insights pages say so.
 

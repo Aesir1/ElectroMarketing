@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { graphql } from "@/gql";
 import type { CampaignInsightsQuery } from "@/gql/graphql";
 import { execute } from "@/lib/graphql";
@@ -45,17 +56,46 @@ const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function CampaignInsightsView({ campaignId }: { campaignId: string }) {
   const [data, setData] = useState<CampaignInsightsQuery["campaignInsights"] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    execute(CampaignInsightsDocument, { id: campaignId }).then((d) => setData(d.campaignInsights ?? null), () => setData(null));
+    let current = true;
+    execute(CampaignInsightsDocument, { id: campaignId }).then(
+      (d) => current && (setData(d.campaignInsights ?? null), setLoading(false)),
+      (e: Error) => current && (setError(e.message), setLoading(false)),
+    );
+    return () => {
+      current = false;
+    };
   }, [campaignId]);
 
+  if (error)
+    return (
+      <p role="alert" className="text-sm text-error">
+        {error}
+      </p>
+    );
+  if (loading) return <p className="text-sm text-muted">Loading insights…</p>;
   if (!data) return null;
   const max = Math.max(1, ...data.byWeekdayHour.map((c) => c.count));
-  const timeline = data.timeline.map((p) => ({ ...p, label: new Date(p.start).toLocaleString(undefined, { weekday: "short", hour: "2-digit", day: "2-digit" }) }));
+  // Labels use the local part of `start` (already in the campaign time zone); never convert in the browser.
+  const timeline = data.timeline.map((p) => ({
+    ...p,
+    label: `${p.start.slice(5, 10)} ${p.start.slice(11, 16)}`,
+  }));
+  const zone = data.timeline[0]?.start.match(/Z$|[+-]\d\d:\d\d$/)?.[0].replace(/^Z$/, "+00:00");
+  const zoneNote = zone ? ` · times in UTC${zone}` : "";
 
-  const totals = { opens: timeline.reduce((a, p) => a + p.opens, 0), clicks: timeline.reduce((a, p) => a + p.clicks, 0) };
-  const peak = data.byWeekdayHour.reduce((a, c) => (c.count > a.count ? c : a), { weekday: 0, hour: 0, count: 0 });
+  const totals = {
+    opens: timeline.reduce((a, p) => a + p.opens, 0),
+    clicks: timeline.reduce((a, p) => a + p.clicks, 0),
+  };
+  const peak = data.byWeekdayHour.reduce((a, c) => (c.count > a.count ? c : a), {
+    weekday: 0,
+    hour: 0,
+    count: 0,
+  });
 
   return (
     <section aria-label="Insights" className="space-y-6">
@@ -79,7 +119,9 @@ export function CampaignInsightsView({ campaignId }: { campaignId: string }) {
               <td className="px-2 py-1">
                 {c.failed} / {c.skipped}
               </td>
-              <td className="px-2 py-1">{c.channel === "EMAIL" ? `${c.opened} (${percent.format(c.openRate)})` : "—"}</td>
+              <td className="px-2 py-1">
+                {c.channel === "EMAIL" ? `${c.opened} (${percent.format(c.openRate)})` : "—"}
+              </td>
               <td className="px-2 py-1">
                 {c.clicked} ({percent.format(c.clickRate)})
               </td>
@@ -88,45 +130,108 @@ export function CampaignInsightsView({ campaignId }: { campaignId: string }) {
           ))}
         </tbody>
       </table>
-      <p className="text-xs text-muted">* E-mail opens are approximate: some mail apps load the tracking image automatically. Clicks are reliable.</p>
+      <p className="text-xs text-muted">
+        * E-mail opens are approximate: some mail apps load the tracking image automatically. Clicks are
+        reliable.
+      </p>
 
       <div>
         <h3 className="font-semibold">
-          Time to first response{data.medianResponseHours != null && ` · median ${data.medianResponseHours} h`}
+          Time to first response
+          {data.medianResponseHours != null && ` · median ${data.medianResponseHours} h`}
         </h3>
-        <div role="img" aria-label={`Responses by time to first response: ${data.responseLatency.map((b) => `${b.label} ${b.count}`).join(", ")}`}>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={data.responseLatency}>
-            <CartesianGrid vertical={false} stroke="var(--color-border)" />
-            <XAxis dataKey="label" tick={{ fill: "var(--color-muted)", fontSize: 12 }} stroke="var(--color-border)" />
-            <YAxis allowDecimals={false} tick={{ fill: "var(--color-muted)", fontSize: 12 }} stroke="var(--color-border)" />
-            <Tooltip contentStyle={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }} />
-            <Bar dataKey="count" name="Responses" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <div
+          role="img"
+          aria-label={`Responses by time to first response: ${data.responseLatency.map((b) => `${b.label} ${b.count}`).join(", ")}`}
+        >
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data.responseLatency}>
+              <CartesianGrid vertical={false} stroke="var(--color-border)" />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+                stroke="var(--color-border)"
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+                stroke="var(--color-border)"
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--color-background)",
+                  border: "1px solid var(--color-border)",
+                  color: "var(--color-foreground)",
+                }}
+              />
+              <Bar dataKey="count" name="Responses" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
       <div>
-        <h3 className="font-semibold">Activity over time</h3>
-        <div role="img" aria-label={`Activity over time: ${totals.opens} opens and ${totals.clicks} clicks in ${timeline.length} periods`}>
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={timeline}>
-            <CartesianGrid vertical={false} stroke="var(--color-border)" />
-            <XAxis dataKey="label" minTickGap={24} tick={{ fill: "var(--color-muted)", fontSize: 12 }} stroke="var(--color-border)" />
-            <YAxis allowDecimals={false} tick={{ fill: "var(--color-muted)", fontSize: 12 }} stroke="var(--color-border)" />
-            <Tooltip contentStyle={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }} />
-            <Legend formatter={(v) => <span style={{ color: "var(--color-foreground)" }}>{v}</span>} />
-            <Line type="monotone" dataKey="opens" name="Opens" stroke="var(--color-muted)" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="clicks" name="Clicks" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        <h3 className="font-semibold">Activity over time{zoneNote}</h3>
+        {timeline.length === 0 && <p className="text-sm text-muted">No activity yet.</p>}
+        <div
+          role="img"
+          aria-label={`Activity over time: ${totals.opens} opens and ${totals.clicks} clicks in ${timeline.length} periods`}
+        >
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={timeline}>
+              <CartesianGrid vertical={false} stroke="var(--color-border)" />
+              <XAxis
+                dataKey="label"
+                minTickGap={24}
+                tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+                stroke="var(--color-border)"
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+                stroke="var(--color-border)"
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--color-background)",
+                  border: "1px solid var(--color-border)",
+                  color: "var(--color-foreground)",
+                }}
+              />
+              <Legend formatter={(v) => <span style={{ color: "var(--color-foreground)" }}>{v}</span>} />
+              <Line
+                type="monotone"
+                dataKey="opens"
+                name="Opens"
+                stroke="var(--color-muted)"
+                strokeWidth={2}
+                strokeDasharray="4 3"
+                dot={{ r: 3 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="clicks"
+                name="Clicks"
+                stroke="var(--color-primary)"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
       <div>
-        <h3 className="font-semibold">Clicks by weekday and hour</h3>
-        <div role="img" aria-label={peak.count ? `Clicks by weekday and hour; busiest ${weekdays[peak.weekday]} ${peak.hour}:00 with ${peak.count}` : "Clicks by weekday and hour; no clicks yet"} className="grid grid-cols-[3rem_repeat(24,minmax(0,1fr))] gap-px text-[10px]">
+        <h3 className="font-semibold">Clicks by weekday and hour{zoneNote}</h3>
+        <div
+          role="img"
+          aria-label={
+            peak.count
+              ? `Clicks by weekday and hour; busiest ${weekdays[peak.weekday]} ${peak.hour}:00 with ${peak.count}`
+              : "Clicks by weekday and hour; no clicks yet"
+          }
+          className="grid grid-cols-[3rem_repeat(24,minmax(0,1fr))] gap-px text-[10px]"
+        >
           <span />
           {Array.from({ length: 24 }, (_, h) => (
             <span key={h} className="text-center text-muted">
@@ -143,7 +248,10 @@ export function CampaignInsightsView({ campaignId }: { campaignId: string }) {
                     key={h}
                     title={`${day} ${h}:00 · ${count} clicks`}
                     className="aspect-square rounded-sm"
-                    style={{ background: "var(--color-primary)", opacity: count === 0 ? 0.06 : 0.2 + (0.8 * count) / max }}
+                    style={{
+                      background: "var(--color-primary)",
+                      opacity: count === 0 ? 0.06 : 0.2 + (0.8 * count) / max,
+                    }}
                   />
                 );
               })}
