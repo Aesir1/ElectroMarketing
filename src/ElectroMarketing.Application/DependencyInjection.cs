@@ -3,6 +3,7 @@ using ElectroMarketing.Application.Campaigns;
 using ElectroMarketing.Application.Documents;
 using ElectroMarketing.Application.Imports;
 using ElectroMarketing.Application.Lists;
+using ElectroMarketing.Application.Tracking;
 using ElectroMarketing.Domain.Contacts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<ListService>();
         services.AddScoped<CampaignService>();
         services.AddScoped<CampaignSender>();
+        services.AddScoped<TrackingService>();
         services.AddScoped<IMessageHandler<ImportBatchChanged>, ImportRequestedHandler>();
         return services;
     }

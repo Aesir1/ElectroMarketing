@@ -23,6 +23,7 @@ app.UseAuthorization();
 app.MapDefaultEndpoints();
 app.MapGraphQL().RequireAuthorization();
 app.MapFileEndpoints();
+app.MapTrackingEndpoints();
 
 await app.RunWithGraphQLCommandsAsync(args);
 

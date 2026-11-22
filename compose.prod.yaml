@@ -50,6 +50,7 @@ services:
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
       AUTH_DOMAIN: ${AUTH_DOMAIN:?set AUTH_DOMAIN in .env}
+      TRACKING_DOMAIN: ${TRACKING_DOMAIN:?set TRACKING_DOMAIN in .env}
       CADDY_TLS: ${CADDY_TLS:?set CADDY_TLS in .env (ACME e-mail, or internal)}
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -71,6 +72,7 @@ services:
         aliases:
           - ${APP_DOMAIN}
           - ${AUTH_DOMAIN}
+          - ${TRACKING_DOMAIN}
 
   # Local test only (CADDY_TLS=internal): copies Caddy's public root certificate where the non-root web
   # process can read it; Caddy's data directory is root-only. With a public CA there is nothing to copy.
@@ -125,7 +127,7 @@ services:
       dockerfile: src/ElectroMarketing.Api/Dockerfile
     restart: unless-stopped
     mem_limit: 280m
-    # Not published and not proxied: only web (the BFF) calls it, over the backend network.
+    # Not published. Caddy proxies only the tracking paths (see TRACKING_DOMAIN in the Caddyfile); web (the BFF) calls the rest.
     depends_on:
       dbutils-migrate:
         condition: service_completed_successfully
@@ -155,8 +157,8 @@ services:
       Twilio__AccountSid: ${TWILIO_ACCOUNT_SID:-}
       Twilio__AuthToken: ${TWILIO_AUTH_TOKEN:-}
       Twilio__From: ${TWILIO_FROM:-}
-      # Short public origin of the tracking links (a short domain routed to the api), and the web app origin.
-      Tracking__BaseUrl: ${TRACKING_BASE_URL:?set TRACKING_BASE_URL in .env}
+      # Short public origin of the tracking links (TRACKING_DOMAIN, routed by Caddy to the api), and the web app origin.
+      Tracking__BaseUrl: https://${TRACKING_DOMAIN}
       Tracking__LandingBaseUrl: https://${APP_DOMAIN}
       Campaigns__SenderLine: ${CAMPAIGN_SENDER_LINE:?set CAMPAIGN_SENDER_LINE in .env}
       # Keycloak over the private network. Tokens still carry the public issuer (KC_HOSTNAME), which the

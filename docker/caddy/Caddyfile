@@ -74,3 +74,29 @@
 		reverse_proxy keycloak:8080
 	}
 }
+
+# Public tracking links (e-mail/SMS/letter short links, open pixel, unsubscribe, landing data). Only these
+# paths reach the api; everything else is 404. The api is otherwise not public.
+{$TRACKING_DOMAIN} {
+	import common
+	# Tracking requests are tiny (the one-click unsubscribe body is a few bytes).
+	request_body {
+		max_size 4KB
+	}
+	# 120 events/min per client IP: generous for mail scanners and real recipients, stops floods.
+	# ponytail: a NAT'd office or mail-security gateway shares one key; raise events if it trips.
+	rate_limit {
+		zone tracking {
+			key {client_ip}
+			events 120
+			window 1m
+		}
+	}
+	@tracking expression `path('/o/*', '/u/*', '/landing/*') || {http.request.uri.path}.matches('^/[A-Za-z0-9]{7}$')`
+	handle @tracking {
+		reverse_proxy api:8080
+	}
+	handle {
+		respond 404
+	}
+}
