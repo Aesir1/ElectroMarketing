@@ -17,6 +17,10 @@ import * as types from './graphql';
 type Documents = {
     "\n  query Viewer {\n    viewer {\n      email\n      permissions\n    }\n  }\n": typeof types.ViewerDocument,
     "\n  query ContactDetail($id: UUID!) {\n    contact(id: $id) {\n      id\n      name\n      email\n      phone\n      phoneE164\n      street\n      postalCode\n      city\n      country\n      obtainedOn\n      emailOptOut\n      smsOptOut\n      createdAtUtc\n    }\n    contactHistory(contactId: $id, first: 100) {\n      nodes {\n        id\n        rowNumber\n        change\n        changes {\n          field\n          old\n          new\n        }\n        importBatch {\n          id\n          fileName\n          documentId\n          createdAtUtc\n          createdBy\n          category {\n            name\n          }\n        }\n      }\n    }\n  }\n": typeof types.ContactDetailDocument,
+    "\n  query Contacts($filter: ContactFilterInput, $after: String) {\n    contacts(filter: $filter, first: 50, after: $after) {\n      totalCount\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        id\n        name\n        email\n        phone\n        city\n        obtainedOn\n        emailOptOut\n        smsOptOut\n      }\n    }\n  }\n": typeof types.ContactsDocument,
+    "\n  query ContactsPageData {\n    categories {\n      id\n      name\n    }\n    contactLists(first: 100) {\n      nodes {\n        id\n        name\n      }\n    }\n  }\n": typeof types.ContactsPageDataDocument,
+    "\n  mutation CreateListForSelection($input: CreateContactListInput!) {\n    createContactList(input: $input) {\n      contactList {\n        id\n        name\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": typeof types.CreateListForSelectionDocument,
+    "\n  mutation AddToList($input: AddToContactListInput!) {\n    addToContactList(input: $input) {\n      count\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": typeof types.AddToListDocument,
     "\n  query Documents {\n    documents(first: 100) {\n      nodes {\n        id\n        fileName\n        contentType\n        sizeBytes\n        status\n        createdAtUtc\n        downloadUrl\n      }\n    }\n  }\n": typeof types.DocumentsDocument,
     "\n  mutation RequestDocumentUpload($input: RequestDocumentUploadInput!) {\n    requestDocumentUpload(input: $input) {\n      documentUploadPayload {\n        uploadUrl\n        document {\n          id\n        }\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n        ... on ValidationError {\n          fields {\n            field\n            messages\n          }\n        }\n      }\n    }\n  }\n": typeof types.RequestDocumentUploadDocument,
     "\n  mutation ConfirmDocumentUpload($input: ConfirmDocumentUploadInput!) {\n    confirmDocumentUpload(input: $input) {\n      document {\n        id\n        status\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": typeof types.ConfirmDocumentUploadDocument,
@@ -31,12 +35,22 @@ type Documents = {
     "\n  mutation StartImport($input: StartImportInput!) {\n    startImport(input: $input) {\n      importBatch {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n        ... on ValidationError {\n          fields {\n            field\n            messages\n          }\n        }\n      }\n    }\n  }\n": typeof types.StartImportDocument,
     "\n  query ImportBatches {\n    importBatches(first: 50, order: [{ createdAtUtc: DESC }]) {\n      nodes {\n        id\n        fileName\n        documentId\n        status\n        culture\n        rowCount\n        createdCount\n        updatedCount\n        unchangedCount\n        skippedCount\n        errorCount\n        createdAtUtc\n        createdBy\n        category {\n          name\n        }\n      }\n    }\n  }\n": typeof types.ImportBatchesDocument,
     "\n  query ImportErrors($id: UUID!) {\n    importBatches(where: { id: { eq: $id } }) {\n      nodes {\n        errors {\n          row\n          message\n        }\n      }\n    }\n  }\n": typeof types.ImportErrorsDocument,
+    "\n  mutation CreateListFromBatch($input: CreateContactListFromBatchInput!) {\n    createContactListFromBatch(input: $input) {\n      contactList {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": typeof types.CreateListFromBatchDocument,
+    "\n  query ContactLists {\n    contactLists(first: 100) {\n      nodes {\n        id\n        name\n        memberCount\n        createdAtUtc\n        createdBy\n      }\n    }\n  }\n": typeof types.ContactListsDocument,
+    "\n  query ContactListMembers($listId: UUID!, $after: String) {\n    contactListMembers(listId: $listId, first: 100, after: $after) {\n      totalCount\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        addedAtUtc\n        contact {\n          id\n          name\n          email\n          phone\n          city\n        }\n      }\n    }\n  }\n": typeof types.ContactListMembersDocument,
+    "\n  mutation RenameList($input: RenameContactListInput!) {\n    renameContactList(input: $input) {\n      contactList {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": typeof types.RenameListDocument,
+    "\n  mutation DeleteList($input: DeleteContactListInput!) {\n    deleteContactList(input: $input) {\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": typeof types.DeleteListDocument,
+    "\n  mutation RemoveFromList($input: RemoveFromContactListInput!) {\n    removeFromContactList(input: $input) {\n      count\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": typeof types.RemoveFromListDocument,
     "\n  query Queues {\n    queues {\n      name\n      messages\n      consumers\n    }\n  }\n": typeof types.QueuesDocument,
     "\n  mutation PurgeQueue($input: PurgeQueueInput!) {\n    purgeQueue(input: $input) {\n      unsignedInt\n    }\n  }\n": typeof types.PurgeQueueDocument,
 };
 const documents: Documents = {
     "\n  query Viewer {\n    viewer {\n      email\n      permissions\n    }\n  }\n": types.ViewerDocument,
     "\n  query ContactDetail($id: UUID!) {\n    contact(id: $id) {\n      id\n      name\n      email\n      phone\n      phoneE164\n      street\n      postalCode\n      city\n      country\n      obtainedOn\n      emailOptOut\n      smsOptOut\n      createdAtUtc\n    }\n    contactHistory(contactId: $id, first: 100) {\n      nodes {\n        id\n        rowNumber\n        change\n        changes {\n          field\n          old\n          new\n        }\n        importBatch {\n          id\n          fileName\n          documentId\n          createdAtUtc\n          createdBy\n          category {\n            name\n          }\n        }\n      }\n    }\n  }\n": types.ContactDetailDocument,
+    "\n  query Contacts($filter: ContactFilterInput, $after: String) {\n    contacts(filter: $filter, first: 50, after: $after) {\n      totalCount\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        id\n        name\n        email\n        phone\n        city\n        obtainedOn\n        emailOptOut\n        smsOptOut\n      }\n    }\n  }\n": types.ContactsDocument,
+    "\n  query ContactsPageData {\n    categories {\n      id\n      name\n    }\n    contactLists(first: 100) {\n      nodes {\n        id\n        name\n      }\n    }\n  }\n": types.ContactsPageDataDocument,
+    "\n  mutation CreateListForSelection($input: CreateContactListInput!) {\n    createContactList(input: $input) {\n      contactList {\n        id\n        name\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": types.CreateListForSelectionDocument,
+    "\n  mutation AddToList($input: AddToContactListInput!) {\n    addToContactList(input: $input) {\n      count\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": types.AddToListDocument,
     "\n  query Documents {\n    documents(first: 100) {\n      nodes {\n        id\n        fileName\n        contentType\n        sizeBytes\n        status\n        createdAtUtc\n        downloadUrl\n      }\n    }\n  }\n": types.DocumentsDocument,
     "\n  mutation RequestDocumentUpload($input: RequestDocumentUploadInput!) {\n    requestDocumentUpload(input: $input) {\n      documentUploadPayload {\n        uploadUrl\n        document {\n          id\n        }\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n        ... on ValidationError {\n          fields {\n            field\n            messages\n          }\n        }\n      }\n    }\n  }\n": types.RequestDocumentUploadDocument,
     "\n  mutation ConfirmDocumentUpload($input: ConfirmDocumentUploadInput!) {\n    confirmDocumentUpload(input: $input) {\n      document {\n        id\n        status\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": types.ConfirmDocumentUploadDocument,
@@ -51,6 +65,12 @@ const documents: Documents = {
     "\n  mutation StartImport($input: StartImportInput!) {\n    startImport(input: $input) {\n      importBatch {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n        ... on ValidationError {\n          fields {\n            field\n            messages\n          }\n        }\n      }\n    }\n  }\n": types.StartImportDocument,
     "\n  query ImportBatches {\n    importBatches(first: 50, order: [{ createdAtUtc: DESC }]) {\n      nodes {\n        id\n        fileName\n        documentId\n        status\n        culture\n        rowCount\n        createdCount\n        updatedCount\n        unchangedCount\n        skippedCount\n        errorCount\n        createdAtUtc\n        createdBy\n        category {\n          name\n        }\n      }\n    }\n  }\n": types.ImportBatchesDocument,
     "\n  query ImportErrors($id: UUID!) {\n    importBatches(where: { id: { eq: $id } }) {\n      nodes {\n        errors {\n          row\n          message\n        }\n      }\n    }\n  }\n": types.ImportErrorsDocument,
+    "\n  mutation CreateListFromBatch($input: CreateContactListFromBatchInput!) {\n    createContactListFromBatch(input: $input) {\n      contactList {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": types.CreateListFromBatchDocument,
+    "\n  query ContactLists {\n    contactLists(first: 100) {\n      nodes {\n        id\n        name\n        memberCount\n        createdAtUtc\n        createdBy\n      }\n    }\n  }\n": types.ContactListsDocument,
+    "\n  query ContactListMembers($listId: UUID!, $after: String) {\n    contactListMembers(listId: $listId, first: 100, after: $after) {\n      totalCount\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        addedAtUtc\n        contact {\n          id\n          name\n          email\n          phone\n          city\n        }\n      }\n    }\n  }\n": types.ContactListMembersDocument,
+    "\n  mutation RenameList($input: RenameContactListInput!) {\n    renameContactList(input: $input) {\n      contactList {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": types.RenameListDocument,
+    "\n  mutation DeleteList($input: DeleteContactListInput!) {\n    deleteContactList(input: $input) {\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": types.DeleteListDocument,
+    "\n  mutation RemoveFromList($input: RemoveFromContactListInput!) {\n    removeFromContactList(input: $input) {\n      count\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n": types.RemoveFromListDocument,
     "\n  query Queues {\n    queues {\n      name\n      messages\n      consumers\n    }\n  }\n": types.QueuesDocument,
     "\n  mutation PurgeQueue($input: PurgeQueueInput!) {\n    purgeQueue(input: $input) {\n      unsignedInt\n    }\n  }\n": types.PurgeQueueDocument,
 };
@@ -63,6 +83,22 @@ export function graphql(source: "\n  query Viewer {\n    viewer {\n      email\n
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query ContactDetail($id: UUID!) {\n    contact(id: $id) {\n      id\n      name\n      email\n      phone\n      phoneE164\n      street\n      postalCode\n      city\n      country\n      obtainedOn\n      emailOptOut\n      smsOptOut\n      createdAtUtc\n    }\n    contactHistory(contactId: $id, first: 100) {\n      nodes {\n        id\n        rowNumber\n        change\n        changes {\n          field\n          old\n          new\n        }\n        importBatch {\n          id\n          fileName\n          documentId\n          createdAtUtc\n          createdBy\n          category {\n            name\n          }\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').ContactDetailDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Contacts($filter: ContactFilterInput, $after: String) {\n    contacts(filter: $filter, first: 50, after: $after) {\n      totalCount\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        id\n        name\n        email\n        phone\n        city\n        obtainedOn\n        emailOptOut\n        smsOptOut\n      }\n    }\n  }\n"): typeof import('./graphql').ContactsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ContactsPageData {\n    categories {\n      id\n      name\n    }\n    contactLists(first: 100) {\n      nodes {\n        id\n        name\n      }\n    }\n  }\n"): typeof import('./graphql').ContactsPageDataDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateListForSelection($input: CreateContactListInput!) {\n    createContactList(input: $input) {\n      contactList {\n        id\n        name\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').CreateListForSelectionDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation AddToList($input: AddToContactListInput!) {\n    addToContactList(input: $input) {\n      count\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').AddToListDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -119,6 +155,30 @@ export function graphql(source: "\n  query ImportBatches {\n    importBatches(fi
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query ImportErrors($id: UUID!) {\n    importBatches(where: { id: { eq: $id } }) {\n      nodes {\n        errors {\n          row\n          message\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').ImportErrorsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateListFromBatch($input: CreateContactListFromBatchInput!) {\n    createContactListFromBatch(input: $input) {\n      contactList {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').CreateListFromBatchDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ContactLists {\n    contactLists(first: 100) {\n      nodes {\n        id\n        name\n        memberCount\n        createdAtUtc\n        createdBy\n      }\n    }\n  }\n"): typeof import('./graphql').ContactListsDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ContactListMembers($listId: UUID!, $after: String) {\n    contactListMembers(listId: $listId, first: 100, after: $after) {\n      totalCount\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      nodes {\n        addedAtUtc\n        contact {\n          id\n          name\n          email\n          phone\n          city\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').ContactListMembersDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RenameList($input: RenameContactListInput!) {\n    renameContactList(input: $input) {\n      contactList {\n        id\n      }\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').RenameListDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteList($input: DeleteContactListInput!) {\n    deleteContactList(input: $input) {\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').DeleteListDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RemoveFromList($input: RemoveFromContactListInput!) {\n    removeFromContactList(input: $input) {\n      count\n      errors {\n        __typename\n        ... on Error {\n          message\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').RemoveFromListDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

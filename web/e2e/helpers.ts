@@ -12,7 +12,7 @@ export async function login(page: Page, { email, password }: { email: string; pa
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign In" }).click();
-  await expect(page).toHaveURL(/\/app\/imports$/);
+  await expect(page).toHaveURL(/\/app\/contacts$/);
 }
 
 export const unique = (prefix: string) =>

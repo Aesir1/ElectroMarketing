@@ -4,6 +4,12 @@ type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 /** Internal type. DO NOT USE DIRECTLY. */
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 import type { DocumentTypeDecoration } from '@graphql-typed-document-node/core';
+export type AddToContactListInput = {
+  contactIds?: Array<string> | null | undefined;
+  filter?: ContactFilterInput | null | undefined;
+  listId: string;
+};
+
 /** CSV header name for each contact field; null when the file has no such column. */
 export type ColumnMappingInput = {
   city?: string | null | undefined;
@@ -25,8 +31,33 @@ export type ContactChange =
   | 'UNCHANGED'
   | 'UPDATED';
 
+/**
+ * Search: whitespace-separated terms; every term must appear in some field (substring, case-insensitive).
+ * Category and batch filters match contacts touched by any import of those.
+ */
+export type ContactFilterInput = {
+  batchIds?: Array<string> | null | undefined;
+  categoryIds?: Array<string> | null | undefined;
+  obtainedFrom?: unknown;
+  obtainedTo?: unknown;
+  search?: string | null | undefined;
+};
+
 export type CreateCategoryInput = {
   name: string;
+};
+
+export type CreateContactListFromBatchInput = {
+  batchId: string;
+  name: string;
+};
+
+export type CreateContactListInput = {
+  name: string;
+};
+
+export type DeleteContactListInput = {
+  id: string;
 };
 
 export type DeleteDocumentInput = {
@@ -48,6 +79,16 @@ export type PreviewImportInput = {
 };
 
 export type PurgeQueueInput = {
+  name: string;
+};
+
+export type RemoveFromContactListInput = {
+  contactIds: Array<string>;
+  listId: string;
+};
+
+export type RenameContactListInput = {
+  id: string;
   name: string;
 };
 
@@ -86,6 +127,36 @@ export type ContactDetailQueryVariables = Exact<{
 
 
 export type ContactDetailQuery = { contact: { id: string, name: string | null, email: string | null, phone: string | null, phoneE164: string | null, street: string | null, postalCode: string | null, city: string | null, country: string | null, obtainedOn: unknown, emailOptOut: boolean, smsOptOut: boolean, createdAtUtc: string } | null, contactHistory: { nodes: Array<{ id: string, rowNumber: number, change: ContactChange, changes: Array<{ field: string, old: string | null, new: string | null }>, importBatch: { id: string, fileName: string, documentId: string, createdAtUtc: string, createdBy: string | null, category: { name: string } | null } | null }> | null } | null };
+
+export type ContactsQueryVariables = Exact<{
+  filter?: ContactFilterInput | null | undefined;
+  after?: string | null | undefined;
+}>;
+
+
+export type ContactsQuery = { contacts: { totalCount: number, pageInfo: { hasNextPage: boolean, endCursor: string | null }, nodes: Array<{ id: string, name: string | null, email: string | null, phone: string | null, city: string | null, obtainedOn: unknown, emailOptOut: boolean, smsOptOut: boolean }> | null } | null };
+
+export type ContactsPageDataQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ContactsPageDataQuery = { categories: Array<{ id: string, name: string }>, contactLists: { nodes: Array<{ id: string, name: string }> | null } | null };
+
+export type CreateListForSelectionMutationVariables = Exact<{
+  input: CreateContactListInput;
+}>;
+
+
+export type CreateListForSelectionMutation = { createContactList: { contactList: { id: string, name: string } | null, errors: Array<{ __typename: 'ValidationError', message: string }> | null } };
+
+export type AddToListMutationVariables = Exact<{
+  input: AddToContactListInput;
+}>;
+
+
+export type AddToListMutation = { addToContactList: { count: number | null, errors: Array<
+      | { __typename: 'NotFoundError', message: string }
+      | { __typename: 'ValidationError', message: string }
+    > | null } };
 
 export type DocumentsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -203,6 +274,53 @@ export type ImportErrorsQueryVariables = Exact<{
 
 export type ImportErrorsQuery = { importBatches: { nodes: Array<{ errors: Array<{ row: number, message: string }> }> | null } | null };
 
+export type CreateListFromBatchMutationVariables = Exact<{
+  input: CreateContactListFromBatchInput;
+}>;
+
+
+export type CreateListFromBatchMutation = { createContactListFromBatch: { contactList: { id: string } | null, errors: Array<
+      | { __typename: 'NotFoundError', message: string }
+      | { __typename: 'ValidationError', message: string }
+    > | null } };
+
+export type ContactListsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ContactListsQuery = { contactLists: { nodes: Array<{ id: string, name: string, memberCount: number, createdAtUtc: string, createdBy: string | null }> | null } | null };
+
+export type ContactListMembersQueryVariables = Exact<{
+  listId: string;
+  after?: string | null | undefined;
+}>;
+
+
+export type ContactListMembersQuery = { contactListMembers: { totalCount: number, pageInfo: { hasNextPage: boolean, endCursor: string | null }, nodes: Array<{ addedAtUtc: string, contact: { id: string, name: string | null, email: string | null, phone: string | null, city: string | null } | null }> | null } | null };
+
+export type RenameListMutationVariables = Exact<{
+  input: RenameContactListInput;
+}>;
+
+
+export type RenameListMutation = { renameContactList: { contactList: { id: string } | null, errors: Array<
+      | { __typename: 'NotFoundError', message: string }
+      | { __typename: 'ValidationError', message: string }
+    > | null } };
+
+export type DeleteListMutationVariables = Exact<{
+  input: DeleteContactListInput;
+}>;
+
+
+export type DeleteListMutation = { deleteContactList: { errors: Array<{ __typename: 'NotFoundError', message: string }> | null } };
+
+export type RemoveFromListMutationVariables = Exact<{
+  input: RemoveFromContactListInput;
+}>;
+
+
+export type RemoveFromListMutation = { removeFromContactList: { count: number | null, errors: Array<{ __typename: 'NotFoundError', message: string }> | null } };
+
 export type QueuesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -283,6 +401,70 @@ export const ContactDetailDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<ContactDetailQuery, ContactDetailQueryVariables>;
+export const ContactsDocument = new TypedDocumentString(`
+    query Contacts($filter: ContactFilterInput, $after: String) {
+  contacts(filter: $filter, first: 50, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+      name
+      email
+      phone
+      city
+      obtainedOn
+      emailOptOut
+      smsOptOut
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<ContactsQuery, ContactsQueryVariables>;
+export const ContactsPageDataDocument = new TypedDocumentString(`
+    query ContactsPageData {
+  categories {
+    id
+    name
+  }
+  contactLists(first: 100) {
+    nodes {
+      id
+      name
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<ContactsPageDataQuery, ContactsPageDataQueryVariables>;
+export const CreateListForSelectionDocument = new TypedDocumentString(`
+    mutation CreateListForSelection($input: CreateContactListInput!) {
+  createContactList(input: $input) {
+    contactList {
+      id
+      name
+    }
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<CreateListForSelectionMutation, CreateListForSelectionMutationVariables>;
+export const AddToListDocument = new TypedDocumentString(`
+    mutation AddToList($input: AddToContactListInput!) {
+  addToContactList(input: $input) {
+    count
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<AddToListMutation, AddToListMutationVariables>;
 export const DocumentsDocument = new TypedDocumentString(`
     query Documents {
   documents(first: 100) {
@@ -543,6 +725,95 @@ export const ImportErrorsDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<ImportErrorsQuery, ImportErrorsQueryVariables>;
+export const CreateListFromBatchDocument = new TypedDocumentString(`
+    mutation CreateListFromBatch($input: CreateContactListFromBatchInput!) {
+  createContactListFromBatch(input: $input) {
+    contactList {
+      id
+    }
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<CreateListFromBatchMutation, CreateListFromBatchMutationVariables>;
+export const ContactListsDocument = new TypedDocumentString(`
+    query ContactLists {
+  contactLists(first: 100) {
+    nodes {
+      id
+      name
+      memberCount
+      createdAtUtc
+      createdBy
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<ContactListsQuery, ContactListsQueryVariables>;
+export const ContactListMembersDocument = new TypedDocumentString(`
+    query ContactListMembers($listId: UUID!, $after: String) {
+  contactListMembers(listId: $listId, first: 100, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      addedAtUtc
+      contact {
+        id
+        name
+        email
+        phone
+        city
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<ContactListMembersQuery, ContactListMembersQueryVariables>;
+export const RenameListDocument = new TypedDocumentString(`
+    mutation RenameList($input: RenameContactListInput!) {
+  renameContactList(input: $input) {
+    contactList {
+      id
+    }
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<RenameListMutation, RenameListMutationVariables>;
+export const DeleteListDocument = new TypedDocumentString(`
+    mutation DeleteList($input: DeleteContactListInput!) {
+  deleteContactList(input: $input) {
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<DeleteListMutation, DeleteListMutationVariables>;
+export const RemoveFromListDocument = new TypedDocumentString(`
+    mutation RemoveFromList($input: RemoveFromContactListInput!) {
+  removeFromContactList(input: $input) {
+    count
+    errors {
+      __typename
+      ... on Error {
+        message
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<RemoveFromListMutation, RemoveFromListMutationVariables>;
 export const QueuesDocument = new TypedDocumentString(`
     query Queues {
   queues {

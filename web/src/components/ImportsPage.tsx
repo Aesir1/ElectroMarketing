@@ -2,11 +2,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { graphql } from "@/gql";
 import type { ImportBatchesQuery } from "@/gql/graphql";
 import { execute } from "@/lib/graphql";
-import { ImportWizard } from "./ImportWizard";
+import { ImportWizard, messageOf } from "./ImportWizard";
 
 const ImportBatchesDocument = graphql(`
   query ImportBatches {
@@ -46,6 +47,22 @@ const ImportErrorsDocument = graphql(`
   }
 `);
 
+const CreateListFromBatchDocument = graphql(`
+  mutation CreateListFromBatch($input: CreateContactListFromBatchInput!) {
+    createContactListFromBatch(input: $input) {
+      contactList {
+        id
+      }
+      errors {
+        __typename
+        ... on Error {
+          message
+        }
+      }
+    }
+  }
+`);
+
 type Batch = NonNullable<NonNullable<ImportBatchesQuery["importBatches"]>["nodes"]>[number];
 
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -78,6 +95,19 @@ export function ImportsPage() {
     const timer = setInterval(load, 3000);
     return () => clearInterval(timer);
   }, [busy, load]);
+
+  const router = useRouter();
+  async function createList(b: Batch) {
+    const name = window.prompt("Name of the new list", b.fileName);
+    if (!name) return;
+    try {
+      const { createContactListFromBatch } = await execute(CreateListFromBatchDocument, { input: { batchId: b.id, name } });
+      if (createContactListFromBatch.contactList) router.push("/app/lists");
+      else setError(messageOf(createContactListFromBatch.errors));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   async function showErrors(id: string) {
     try {
@@ -130,6 +160,11 @@ export function ImportsPage() {
                 <Link href={`/app/contacts?batch=${b.id}`} className="underline">
                   Contacts
                 </Link>
+                {b.status === "DONE" && (
+                  <button type="button" onClick={() => createList(b)} className="underline">
+                    New list
+                  </button>
+                )}
                 {b.errorCount > 0 && (
                   <button type="button" onClick={() => showErrors(b.id)} className="underline">
                     {b.errorCount} warnings
