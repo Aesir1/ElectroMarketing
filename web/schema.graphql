@@ -5,6 +5,30 @@ schema {
 
 "Every non-abstract subclass is registered as an extension of the Query type (source-generated registration, see GraphQlSetup)."
 type Query {
+  contact(id: UUID!): Contact
+    @authorize(policy: "contacts.read")
+    @cost(weight: "10")
+  "Every CSV row applied to the contact, newest first (UUID v7 ids sort by time)."
+  contactHistory(
+    contactId: UUID!
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+  ): ContactHistoryConnection
+    @authorize(policy: "contacts.read")
+    @listSize(
+      assumedSize: 100
+      slicingArguments: ["first", "last"]
+      slicingArgumentDefaultValue: 10
+      sizedFields: ["edges", "nodes"]
+      requireOneSlicingArgument: false
+    )
+    @cost(weight: "10")
   "Own documents (all for platform-admin) with their download path."
   documents(
     "Returns the first _n_ elements from the list."
@@ -30,6 +54,30 @@ type Query {
   document(id: UUID!): Document
     @authorize(policy: "documents.read")
     @cost(weight: "10")
+  importBatches(
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    where: ImportBatchFilterInput @cost(weight: "10")
+    order: [ImportBatchSortInput!] @cost(weight: "10")
+  ): ImportBatchesConnection
+    @authorize(policy: "contacts.read")
+    @listSize(
+      assumedSize: 100
+      slicingArguments: ["first", "last"]
+      slicingArgumentDefaultValue: 10
+      sizedFields: ["edges", "nodes"]
+      requireOneSlicingArgument: false
+    )
+    @cost(weight: "10")
+  categories: [Category!]!
+    @authorize(policy: "contacts.read")
+    @cost(weight: "10")
   queues: [QueueInfo!]! @authorize(policy: "queues.manage") @cost(weight: "10")
   "The signed-in user, so the UI can show only what the caller may use."
   viewer: Viewer!
@@ -53,6 +101,17 @@ type Mutation {
   deleteDocument(input: DeleteDocumentInput!): DeleteDocumentPayload!
     @authorize(policy: "documents.write")
     @cost(weight: "10")
+  createCategory(input: CreateCategoryInput!): CreateCategoryPayload!
+    @authorize(policy: "imports.write")
+    @cost(weight: "10")
+  "Delimiter, encoding, headers, first 10 rows and a suggested column mapping of an uploaded CSV."
+  previewImport(input: PreviewImportInput!): PreviewImportPayload!
+    @authorize(policy: "imports.write")
+    @cost(weight: "10")
+  "Queues the import; poll importBatches for the status."
+  startImport(input: StartImportInput!): StartImportPayload!
+    @authorize(policy: "imports.write")
+    @cost(weight: "10")
   "Declares a durable queue bound to domain-events with its own dead-letter queue."
   declareQueue(input: DeclareQueueInput!): DeclareQueuePayload!
     @authorize(policy: "queues.manage")
@@ -66,6 +125,29 @@ type Mutation {
     @cost(weight: "10")
 }
 
+type Category {
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedInt!
+  name: String!
+  id: UUID!
+  createdAtUtc: DateTime!
+  createdBy: String
+  updatedAtUtc: DateTime
+  updatedBy: String
+}
+
+"CSV header name for each contact field; null when the file has no such column."
+type ColumnMapping {
+  name: String
+  email: String
+  phone: String
+  street: String
+  postalCode: String
+  city: String
+  country: String
+  obtainedOn: String
+}
+
 type ConfirmDocumentUploadPayload {
   document: Document
   errors: [ConfirmDocumentUploadError!]
@@ -74,6 +156,74 @@ type ConfirmDocumentUploadPayload {
 type ConflictError implements Error {
   message: String!
   code: String!
+}
+
+"One person or company. Only imports change contact data, through ContactMerger."
+type Contact {
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedInt!
+  name: String
+  "Trimmed and lower-case; unique. First match key of an import."
+  email: String
+  "As written in the last file that changed it."
+  phone: String
+  "E.164; unique. Second match key of an import."
+  phoneE164: String
+  street: String
+  postalCode: String
+  city: String
+  country: String
+  obtainedOn: LocalDate
+  emailOptOut: Boolean!
+  smsOptOut: Boolean!
+  id: UUID!
+  createdAtUtc: DateTime!
+  createdBy: String
+  updatedAtUtc: DateTime
+  updatedBy: String
+}
+
+"A connection to a list of items."
+type ContactHistoryConnection {
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "A list of edges."
+  edges: [ContactHistoryEdge!]
+  "A flattened list of the nodes."
+  nodes: [ContactImport!]
+}
+
+"An edge in a connection."
+type ContactHistoryEdge {
+  "A cursor for use in pagination."
+  cursor: String!
+  "The item at the end of the edge."
+  node: ContactImport!
+}
+
+"One CSV row applied to one contact: which file touched the contact and what it changed."
+type ContactImport {
+  id: UUID!
+  contactId: UUID!
+  contact: Contact
+  importBatchId: UUID!
+  importBatch: ImportBatch
+  rowNumber: Int!
+  change: ContactChange!
+  changes: [FieldChange!]!
+}
+
+type CreateCategoryPayload {
+  category: Category
+  errors: [CreateCategoryError!]
+}
+
+type CsvPreview {
+  delimiter: String!
+  encoding: String!
+  headers: [String!]!
+  rows: [[String!]!]!
+  suggestedMapping: ColumnMapping!
 }
 
 type DeclareQueuePayload {
@@ -133,6 +283,12 @@ type DocumentUploadPayload {
   uploadUrl: String!
 }
 
+type FieldChange {
+  field: String!
+  old: String
+  new: String
+}
+
 type FieldError {
   field: String!
   messages: [String!]!
@@ -141,6 +297,61 @@ type FieldError {
 type ForbiddenError implements Error {
   message: String!
   code: String!
+}
+
+"One imported CSV file (a \"lot\"). Adding it publishes import.created, which starts the import consumer."
+type ImportBatch {
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedInt!
+  categoryId: UUID!
+  category: Category
+  "The uploaded CSV; its bytes stay in object storage."
+  documentId: UUID!
+  fileName: String!
+  "Culture name such as de-DE: date formats and default phone region."
+  culture: String!
+  mapping: ColumnMapping!
+  status: ImportStatus!
+  rowCount: Int!
+  createdCount: Int!
+  updatedCount: Int!
+  unchangedCount: Int!
+  skippedCount: Int!
+  "All warnings and errors; only the first MaxStoredErrors are kept in Errors."
+  errorCount: Int!
+  errors: [ImportRowError!]!
+  finishedAtUtc: DateTime
+  id: UUID!
+  createdAtUtc: DateTime!
+  createdBy: String
+  updatedAtUtc: DateTime
+  updatedBy: String
+}
+
+"A connection to a list of items."
+type ImportBatchesConnection {
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "A list of edges."
+  edges: [ImportBatchesEdge!]
+  "A flattened list of the nodes."
+  nodes: [ImportBatch!]
+  "Identifies the total count of items in the connection."
+  totalCount: Int! @cost(weight: "10")
+}
+
+"An edge in a connection."
+type ImportBatchesEdge {
+  "A cursor for use in pagination."
+  cursor: String!
+  "The item at the end of the edge."
+  node: ImportBatch!
+}
+
+"Row is the physical CSV line (header = 1); 0 means the whole file."
+type ImportRowError {
+  row: Int!
+  message: String!
 }
 
 type NotFoundError implements Error {
@@ -158,6 +369,11 @@ type PageInfo {
   startCursor: String
   "When paginating forwards, the cursor to continue."
   endCursor: String
+}
+
+type PreviewImportPayload {
+  csvPreview: CsvPreview
+  errors: [PreviewImportError!]
 }
 
 type PurgeQueuePayload {
@@ -185,6 +401,11 @@ type RequestDocumentUploadPayload {
   errors: [RequestDocumentUploadError!]
 }
 
+type StartImportPayload {
+  importBatch: ImportBatch
+  errors: [StartImportError!]
+}
+
 type ValidationError implements Error {
   message: String!
   fields: [FieldError!]!
@@ -204,7 +425,11 @@ interface Error {
 
 union ConfirmDocumentUploadError = NotFoundError | ConflictError
 
+union CreateCategoryError = ValidationError | ConflictError
+
 union DeleteDocumentError = NotFoundError
+
+union PreviewImportError = NotFoundError
 
 union RenameDocumentError = NotFoundError | ValidationError
 
@@ -212,13 +437,81 @@ union ReplaceDocumentContentError = NotFoundError | ValidationError
 
 union RequestDocumentUploadError = ValidationError | ForbiddenError
 
+union StartImportError = NotFoundError | ValidationError
+
 input BooleanOperationFilterInput {
   eq: Boolean @cost(weight: "10")
   neq: Boolean @cost(weight: "10")
 }
 
+input CategoryFilterInput {
+  and: [CategoryFilterInput!]
+  or: [CategoryFilterInput!]
+  name: StringOperationFilterInput
+  id: UuidOperationFilterInput
+  createdAtUtc: DateTimeOperationFilterInput
+  createdBy: StringOperationFilterInput
+  updatedAtUtc: DateTimeOperationFilterInput
+  updatedBy: StringOperationFilterInput
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedIntOperationFilterInput
+}
+
+input CategorySortInput {
+  name: SortEnumType @cost(weight: "10")
+  id: SortEnumType @cost(weight: "10")
+  createdAtUtc: SortEnumType @cost(weight: "10")
+  createdBy: SortEnumType @cost(weight: "10")
+  updatedAtUtc: SortEnumType @cost(weight: "10")
+  updatedBy: SortEnumType @cost(weight: "10")
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: SortEnumType @cost(weight: "10")
+}
+
+"CSV header name for each contact field; null when the file has no such column."
+input ColumnMappingFilterInput {
+  and: [ColumnMappingFilterInput!]
+  or: [ColumnMappingFilterInput!]
+  name: StringOperationFilterInput
+  email: StringOperationFilterInput
+  phone: StringOperationFilterInput
+  street: StringOperationFilterInput
+  postalCode: StringOperationFilterInput
+  city: StringOperationFilterInput
+  country: StringOperationFilterInput
+  obtainedOn: StringOperationFilterInput
+}
+
+"CSV header name for each contact field; null when the file has no such column."
+input ColumnMappingInput {
+  name: String
+  email: String
+  phone: String
+  street: String
+  postalCode: String
+  city: String
+  country: String
+  obtainedOn: String
+}
+
+"CSV header name for each contact field; null when the file has no such column."
+input ColumnMappingSortInput {
+  name: SortEnumType @cost(weight: "10")
+  email: SortEnumType @cost(weight: "10")
+  phone: SortEnumType @cost(weight: "10")
+  street: SortEnumType @cost(weight: "10")
+  postalCode: SortEnumType @cost(weight: "10")
+  city: SortEnumType @cost(weight: "10")
+  country: SortEnumType @cost(weight: "10")
+  obtainedOn: SortEnumType @cost(weight: "10")
+}
+
 input ConfirmDocumentUploadInput {
   id: UUID!
+}
+
+input CreateCategoryInput {
+  name: String!
 }
 
 input DateTimeOperationFilterInput {
@@ -291,6 +584,102 @@ input DocumentStatusOperationFilterInput {
   nin: [DocumentStatus!] @cost(weight: "10")
 }
 
+"One imported CSV file (a \"lot\"). Adding it publishes import.created, which starts the import consumer."
+input ImportBatchFilterInput {
+  and: [ImportBatchFilterInput!]
+  or: [ImportBatchFilterInput!]
+  categoryId: UuidOperationFilterInput
+  category: CategoryFilterInput
+  "The uploaded CSV; its bytes stay in object storage."
+  documentId: UuidOperationFilterInput
+  fileName: StringOperationFilterInput
+  "Culture name such as de-DE: date formats and default phone region."
+  culture: StringOperationFilterInput
+  mapping: ColumnMappingFilterInput
+  status: ImportStatusOperationFilterInput
+  rowCount: IntOperationFilterInput
+  createdCount: IntOperationFilterInput
+  updatedCount: IntOperationFilterInput
+  unchangedCount: IntOperationFilterInput
+  skippedCount: IntOperationFilterInput
+  "All warnings and errors; only the first MaxStoredErrors are kept in Errors."
+  errorCount: IntOperationFilterInput
+  errors: ListFilterInputTypeOfImportRowErrorFilterInput
+  finishedAtUtc: DateTimeOperationFilterInput
+  id: UuidOperationFilterInput
+  createdAtUtc: DateTimeOperationFilterInput
+  createdBy: StringOperationFilterInput
+  updatedAtUtc: DateTimeOperationFilterInput
+  updatedBy: StringOperationFilterInput
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedIntOperationFilterInput
+}
+
+"One imported CSV file (a \"lot\"). Adding it publishes import.created, which starts the import consumer."
+input ImportBatchSortInput {
+  categoryId: SortEnumType @cost(weight: "10")
+  category: CategorySortInput @cost(weight: "10")
+  "The uploaded CSV; its bytes stay in object storage."
+  documentId: SortEnumType @cost(weight: "10")
+  fileName: SortEnumType @cost(weight: "10")
+  "Culture name such as de-DE: date formats and default phone region."
+  culture: SortEnumType @cost(weight: "10")
+  mapping: ColumnMappingSortInput @cost(weight: "10")
+  status: SortEnumType @cost(weight: "10")
+  rowCount: SortEnumType @cost(weight: "10")
+  createdCount: SortEnumType @cost(weight: "10")
+  updatedCount: SortEnumType @cost(weight: "10")
+  unchangedCount: SortEnumType @cost(weight: "10")
+  skippedCount: SortEnumType @cost(weight: "10")
+  "All warnings and errors; only the first MaxStoredErrors are kept in Errors."
+  errorCount: SortEnumType @cost(weight: "10")
+  finishedAtUtc: SortEnumType @cost(weight: "10")
+  id: SortEnumType @cost(weight: "10")
+  createdAtUtc: SortEnumType @cost(weight: "10")
+  createdBy: SortEnumType @cost(weight: "10")
+  updatedAtUtc: SortEnumType @cost(weight: "10")
+  updatedBy: SortEnumType @cost(weight: "10")
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: SortEnumType @cost(weight: "10")
+}
+
+"Row is the physical CSV line (header = 1); 0 means the whole file."
+input ImportRowErrorFilterInput {
+  and: [ImportRowErrorFilterInput!]
+  or: [ImportRowErrorFilterInput!]
+  row: IntOperationFilterInput
+  message: StringOperationFilterInput
+}
+
+input ImportStatusOperationFilterInput {
+  eq: ImportStatus @cost(weight: "10")
+  neq: ImportStatus @cost(weight: "10")
+  in: [ImportStatus!] @cost(weight: "10")
+  nin: [ImportStatus!] @cost(weight: "10")
+}
+
+input IntOperationFilterInput {
+  eq: Int @cost(weight: "10")
+  neq: Int @cost(weight: "10")
+  in: [Int] @cost(weight: "10")
+  nin: [Int] @cost(weight: "10")
+  gt: Int @cost(weight: "10")
+  ngt: Int @cost(weight: "10")
+  gte: Int @cost(weight: "10")
+  ngte: Int @cost(weight: "10")
+  lt: Int @cost(weight: "10")
+  nlt: Int @cost(weight: "10")
+  lte: Int @cost(weight: "10")
+  nlte: Int @cost(weight: "10")
+}
+
+input ListFilterInputTypeOfImportRowErrorFilterInput {
+  all: ImportRowErrorFilterInput @cost(weight: "10")
+  none: ImportRowErrorFilterInput @cost(weight: "10")
+  some: ImportRowErrorFilterInput @cost(weight: "10")
+  any: Boolean @cost(weight: "10")
+}
+
 input LongOperationFilterInput {
   eq: Long @cost(weight: "10")
   neq: Long @cost(weight: "10")
@@ -304,6 +693,10 @@ input LongOperationFilterInput {
   nlt: Long @cost(weight: "10")
   lte: Long @cost(weight: "10")
   nlte: Long @cost(weight: "10")
+}
+
+input PreviewImportInput {
+  documentId: UUID!
 }
 
 input PurgeQueueInput {
@@ -325,6 +718,13 @@ input RequestDocumentUploadInput {
   fileName: String!
   contentType: String!
   sizeBytes: Long!
+}
+
+input StartImportInput {
+  documentId: UUID!
+  categoryId: UUID!
+  mapping: ColumnMappingInput!
+  culture: String!
 }
 
 input StringOperationFilterInput {
@@ -382,9 +782,22 @@ enum ApplyPolicy {
   VALIDATION
 }
 
+enum ContactChange {
+  CREATED
+  UPDATED
+  UNCHANGED
+}
+
 enum DocumentStatus {
   PENDING
   AVAILABLE
+}
+
+enum ImportStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
 }
 
 enum SortEnumType {
@@ -395,6 +808,10 @@ enum SortEnumType {
 "The `DateTime` scalar type represents a date and time with time zone offset information."
 scalar DateTime
   @specifiedBy(url: "https://scalars.graphql.org/chillicream/date-time.html")
+
+"The `LocalDate` scalar type represents a date without time or time zone information."
+scalar LocalDate
+  @specifiedBy(url: "https://scalars.graphql.org/chillicream/local-date.html")
 
 "The `Long` scalar type represents a signed 64-bit integer."
 scalar Long

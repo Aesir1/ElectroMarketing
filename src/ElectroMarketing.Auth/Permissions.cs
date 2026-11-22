@@ -25,6 +25,16 @@ public static class Permissions
         public const string Write = "documents.write";
     }
 
+    public static class Contacts
+    {
+        public const string Read = "contacts.read";
+    }
+
+    public static class Imports
+    {
+        public const string Write = "imports.write";
+    }
+
     public static class Queues
     {
         public const string Manage = "queues.manage";

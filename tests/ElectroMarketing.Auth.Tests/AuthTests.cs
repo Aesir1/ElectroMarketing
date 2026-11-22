@@ -167,6 +167,6 @@ public sealed class AuthTests : IAsyncLifetime
 
         (await authorization.AuthorizeAsync(holder, Permissions.Documents.Write)).Succeeded.ShouldBeTrue();
         (await authorization.AuthorizeAsync(holder, Permissions.Queues.Manage)).Succeeded.ShouldBeFalse();
-        Permissions.All.Count.ShouldBe(3);
+        Permissions.All.Count.ShouldBe(5);
     }
 }

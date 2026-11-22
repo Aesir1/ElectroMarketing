@@ -3,12 +3,12 @@
     {
       "id": "0199a000-0000-7000-9000-000000000001",
       "name": "user",
-      "permissions": ["documents.read", "documents.write"]
+      "permissions": ["documents.read", "documents.write", "contacts.read", "imports.write"]
     },
     {
       "id": "0199a000-0000-7000-9000-000000000002",
       "name": "platform-admin",
-      "permissions": ["documents.read", "documents.write", "queues.manage"]
+      "permissions": ["documents.read", "documents.write", "queues.manage", "contacts.read", "imports.write"]
     }
   ]
 }
