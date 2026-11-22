@@ -1,7 +1,10 @@
 using ElectroMarketing.Application.Abstractions;
+using ElectroMarketing.Application.Contacts;
 using ElectroMarketing.Auth;
 using ElectroMarketing.Domain.Contacts;
+using ElectroMarketing.Infrastructure.Persistence;
 using HotChocolate.Authorization;
+using Microsoft.EntityFrameworkCore;
 
 namespace ElectroMarketing.Api.GraphQl.Contacts;
 
@@ -12,6 +15,13 @@ public class ContactQueries : RootQuery
     [UseFirstOrDefault]
     [UseProjection]
     public IQueryable<Contact> GetContact(Guid id, [Service] IRepository<Contact, Guid> contacts) => contacts.Query().Where(c => c.Id == id);
+
+    [Authorize(Policy = Permissions.Contacts.Read)]
+    [UsePaging(MaxPageSize = 100, IncludeTotalCount = true)]
+    [UseProjection]
+    [UseSorting]
+    public IQueryable<Contact> GetContacts(ContactFilter? filter, [Service] AppDbContext db) =>
+        ContactSearch.Apply(db.Contacts.AsNoTracking(), filter ?? new ContactFilter()).OrderBy(c => c.Name).ThenBy(c => c.Id);
 
     /// <summary>Every CSV row applied to the contact, newest first (UUID v7 ids sort by time).</summary>
     [Authorize(Policy = Permissions.Contacts.Read)]

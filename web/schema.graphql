@@ -8,6 +8,27 @@ type Query {
   contact(id: UUID!): Contact
     @authorize(policy: "contacts.read")
     @cost(weight: "10")
+  contacts(
+    filter: ContactFilterInput
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    order: [ContactSortInput!] @cost(weight: "10")
+  ): ContactsConnection
+    @authorize(policy: "contacts.read")
+    @listSize(
+      assumedSize: 100
+      slicingArguments: ["first", "last"]
+      slicingArgumentDefaultValue: 10
+      sizedFields: ["edges", "nodes"]
+      requireOneSlicingArgument: false
+    )
+    @cost(weight: "10")
   "Every CSV row applied to the contact, newest first (UUID v7 ids sort by time)."
   contactHistory(
     contactId: UUID!
@@ -211,6 +232,26 @@ type ContactImport {
   rowNumber: Int!
   change: ContactChange!
   changes: [FieldChange!]!
+}
+
+"A connection to a list of items."
+type ContactsConnection {
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "A list of edges."
+  edges: [ContactsEdge!]
+  "A flattened list of the nodes."
+  nodes: [Contact!]
+  "Identifies the total count of items in the connection."
+  totalCount: Int! @cost(weight: "10")
+}
+
+"An edge in a connection."
+type ContactsEdge {
+  "A cursor for use in pagination."
+  cursor: String!
+  "The item at the end of the edge."
+  node: Contact!
 }
 
 type CreateCategoryPayload {
@@ -508,6 +549,43 @@ input ColumnMappingSortInput {
 
 input ConfirmDocumentUploadInput {
   id: UUID!
+}
+
+"""
+Search: whitespace-separated terms; every term must appear in some field (substring, case-insensitive).
+Category and batch filters match contacts touched by any import of those.
+"""
+input ContactFilterInput {
+  search: String
+  categoryIds: [UUID!]
+  batchIds: [UUID!]
+  obtainedFrom: LocalDate
+  obtainedTo: LocalDate
+}
+
+"One person or company. Only imports change contact data, through ContactMerger."
+input ContactSortInput {
+  name: SortEnumType @cost(weight: "10")
+  "Trimmed and lower-case; unique. First match key of an import."
+  email: SortEnumType @cost(weight: "10")
+  "As written in the last file that changed it."
+  phone: SortEnumType @cost(weight: "10")
+  "E.164; unique. Second match key of an import."
+  phoneE164: SortEnumType @cost(weight: "10")
+  street: SortEnumType @cost(weight: "10")
+  postalCode: SortEnumType @cost(weight: "10")
+  city: SortEnumType @cost(weight: "10")
+  country: SortEnumType @cost(weight: "10")
+  obtainedOn: SortEnumType @cost(weight: "10")
+  emailOptOut: SortEnumType @cost(weight: "10")
+  smsOptOut: SortEnumType @cost(weight: "10")
+  id: SortEnumType @cost(weight: "10")
+  createdAtUtc: SortEnumType @cost(weight: "10")
+  createdBy: SortEnumType @cost(weight: "10")
+  updatedAtUtc: SortEnumType @cost(weight: "10")
+  updatedBy: SortEnumType @cost(weight: "10")
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: SortEnumType @cost(weight: "10")
 }
 
 input CreateCategoryInput {
