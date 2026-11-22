@@ -17,7 +17,10 @@ public static class MessagingTopology
         // Domain events: topic exchange; the DLX is direct so each queue's dead letters land only in its own DLQ.
         await channel.ExchangeDeclareAsync(DomainEvents, ExchangeType.Topic, durable: true, cancellationToken: ct);
         await channel.ExchangeDeclareAsync(DomainEventsDlx, ExchangeType.Direct, durable: true, cancellationToken: ct);
-        await DeclareQueueAsync(channel, ContactImportQueue, DomainEvents, "import.created", DomainEventsDlx, ct);
+
+        // import.# not import.created: publishes are mandatory, so an unbound import.updated would fail and block the outbox.
+        // The handler ignores everything except Created.
+        await DeclareQueueAsync(channel, ContactImportQueue, DomainEvents, "import.#", DomainEventsDlx, ct);
     }
 
     /// <summary>Durable queue with its own DLQ, dead-lettered through <paramref name="deadLetterExchange"/> by queue name.</summary>
