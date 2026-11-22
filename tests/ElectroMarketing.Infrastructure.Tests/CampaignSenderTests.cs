@@ -81,6 +81,30 @@ public sealed class CampaignSenderTests(PostgresFixture db) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Contact_who_opts_out_after_start_is_skipped_not_sent()
+    {
+        await using (var ctx = db.Create())
+        {
+            await ctx.Contacts.Where(c => c.Name == "Ann").ExecuteUpdateAsync(
+                s => s.SetProperty(c => c.EmailOptOut, true).SetProperty(c => c.SmsOptOut, true).SetProperty(c => c.PostOptOut, true), Ct);
+        }
+
+        await using (var ctx = db.Create())
+        {
+            await Sender(ctx).SendPendingAsync(Ct);
+        }
+
+        await email.Received(1).SendAsync(Arg.Is<EmailMessage>(m => m.To == "bob@x.de"), Arg.Any<CancellationToken>());
+        await sms.DidNotReceive().SendAsync("+491701111111", Arg.Any<string>(), Arg.Any<CancellationToken>());
+        letters.Received(1).Render(Arg.Is<IReadOnlyList<Letter>>(l => l.Count == 1));
+
+        await using var read = db.Create();
+        var skipped = await read.CampaignMessages.Where(m => m.Contact!.Name == "Ann").ToListAsync(Ct);
+        skipped.ShouldAllBe(m => m.Status == MessageStatus.Skipped && m.Error!.StartsWith("Unsubscribed from"));
+        skipped.Count.ShouldBe(3);
+    }
+
+    [Fact]
     public async Task Restart_only_sends_what_is_still_queued()
     {
         await using (var ctx = db.Create())

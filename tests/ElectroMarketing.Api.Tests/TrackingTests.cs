@@ -108,6 +108,20 @@ public sealed class TrackingTests(ApiFactory api)
     }
 
     [Fact]
+    public async Task Post_unsubscribe_sets_only_post_opt_out()
+    {
+        var (token, _, contactId) = await SeedAsync(Channel.Post);
+        using var client = Anonymous();
+
+        using var post = await client.PostAsync($"/u/{token}", null, Ct);
+
+        post.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await using var read = Db();
+        var contact = await read.Contacts.SingleAsync(c => c.Id == contactId, Ct);
+        (contact.PostOptOut, contact.SmsOptOut, contact.EmailOptOut).ShouldBe((true, false, false));
+    }
+
+    [Fact]
     public async Task Landing_returns_campaign_text_and_records_a_view()
     {
         var (token, messageId, _) = await SeedAsync(Channel.Post);
@@ -116,6 +130,7 @@ public sealed class TrackingTests(ApiFactory api)
         var page = await client.GetFromJsonAsync<JsonNode>($"/landing/{token}", Ct);
 
         (page!["title"]!.GetValue<string>(), page["body"]!.GetValue<string>()).ShouldBe(("Solar panels", "Call us."));
+        page["unsubscribeUrl"]!.GetValue<string>().ShouldEndWith($"/u/{token}");
         (await EventsAsync(messageId)).ShouldBe(["LandingView"]);
     }
 }

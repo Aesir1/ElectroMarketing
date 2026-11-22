@@ -50,8 +50,11 @@ public static class TrackingEndpoints
             ? Html("<p>You are unsubscribed. You will not receive these messages any more.</p>")
             : Results.NotFound();
 
-    private static async Task<IResult> LandingAsync(string token, HttpRequest request, TrackingService tracking, CancellationToken ct) =>
-        await tracking.LandingAsync(token, UserAgent(request), ct) is { } page ? Results.Ok(page) : Results.NotFound();
+    /// <summary>The landing page links to the unsubscribe form so SMS and letter recipients can opt out too.</summary>
+    private static async Task<IResult> LandingAsync(string token, HttpRequest request, TrackingService tracking, TrackingOptions options, CancellationToken ct) =>
+        await tracking.LandingAsync(token, UserAgent(request), ct) is { } page
+            ? Results.Ok(new { page.Title, page.Body, UnsubscribeUrl = $"{options.BaseUrl.TrimEnd('/')}/u/{token}" })
+            : Results.NotFound();
 
     private static string? UserAgent(HttpRequest request) => request.Headers.UserAgent.ToString() is { Length: > 0 } ua ? ua : null;
 

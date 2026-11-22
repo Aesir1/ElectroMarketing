@@ -60,5 +60,7 @@ public class CampaignContentTests
         RecipientRules.SkipReason(Channel.Email, new Contact { Email = "a@b.de", EmailOptOut = true }).ShouldBe("Unsubscribed from e-mail.");
         RecipientRules.SkipReason(Channel.Sms, new Contact { Email = "a@b.de" }).ShouldBe("No phone number.");
         RecipientRules.SkipReason(Channel.Post, new Contact { Street = "x" }).ShouldBe("No postal address.");
+        RecipientRules.SkipReason(Channel.Post, new Contact { Street = "x", City = "y", PostOptOut = true }).ShouldBe("Unsubscribed from post.");
+        RecipientRules.SkipReason(Channel.Post, new Contact { Street = "x", City = "y" }).ShouldBeNull();
     }
 }

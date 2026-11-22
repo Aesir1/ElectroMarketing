@@ -18,13 +18,13 @@ public sealed class CampaignStore(AppDbContext db, Func<string>? newToken = null
         // Only the columns SkipReason reads; the transient Contact is never tracked.
         var rows = await db.ContactListMembers.AsNoTracking()
             .Where(m => m.ContactListId == campaign.ContactListId)
-            .Select(m => new { m.ContactId, m.Contact!.Email, m.Contact.EmailOptOut, m.Contact.PhoneE164, m.Contact.SmsOptOut, m.Contact.Street, m.Contact.City })
+            .Select(m => new { m.ContactId, m.Contact!.Email, m.Contact.EmailOptOut, m.Contact.PhoneE164, m.Contact.SmsOptOut, m.Contact.PostOptOut, m.Contact.Street, m.Contact.City })
             .ToListAsync(ct);
         var queued = 0;
         var messages = new List<CampaignMessage>();
         foreach (var r in rows)
         {
-            var contact = new Contact { Email = r.Email, EmailOptOut = r.EmailOptOut, PhoneE164 = r.PhoneE164, SmsOptOut = r.SmsOptOut, Street = r.Street, City = r.City };
+            var contact = new Contact { Email = r.Email, EmailOptOut = r.EmailOptOut, PhoneE164 = r.PhoneE164, SmsOptOut = r.SmsOptOut, PostOptOut = r.PostOptOut, Street = r.Street, City = r.City };
             foreach (var channel in campaign.Channels())
             {
                 var reason = RecipientRules.SkipReason(channel, contact);

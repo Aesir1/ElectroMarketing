@@ -69,6 +69,7 @@ public static class RecipientRules
         Channel.Email when contact.EmailOptOut => "Unsubscribed from e-mail.",
         Channel.Sms when contact.PhoneE164 is null => "No phone number.",
         Channel.Sms when contact.SmsOptOut => "Unsubscribed from SMS.",
+        Channel.Post when contact.PostOptOut => "Unsubscribed from post.",
         Channel.Post when contact.Street is null || contact.City is null => "No postal address.",
         _ => null,
     };

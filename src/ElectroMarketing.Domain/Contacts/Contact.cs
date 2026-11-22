@@ -39,6 +39,8 @@ public class Contact : AuditableEntity
 
     public bool SmsOptOut { get; set; }
 
+    public bool PostOptOut { get; set; }
+
     /// <summary>Lower-case text of every searchable field, behind the trigram index. Call <see cref="RefreshSearchText"/> after changes.</summary>
     public string SearchText { get; private set; } = string.Empty;
 

@@ -39,7 +39,7 @@ public sealed class TrackingService(
         return new LandingPage(campaign.LandingTitle ?? campaign.Name, campaign.LandingBody ?? string.Empty);
     }
 
-    /// <summary>Opts the contact out of the message's channel (SMS → SMS, everything else → e-mail).</summary>
+    /// <summary>Opts the contact out of the message's channel (SMS → SMS, Post → post, E-Mail → e-mail).</summary>
     public async Task<bool> UnsubscribeAsync(string token, string? userAgent, CancellationToken ct = default)
     {
         var message = await FindAsync(token, ct);
@@ -48,13 +48,17 @@ public sealed class TrackingService(
             return false;
         }
 
-        if (message.Channel == Channel.Sms)
+        switch (message.Channel)
         {
-            contact.SmsOptOut = true;
-        }
-        else
-        {
-            contact.EmailOptOut = true;
+            case Channel.Sms:
+                contact.SmsOptOut = true;
+                break;
+            case Channel.Post:
+                contact.PostOptOut = true;
+                break;
+            default:
+                contact.EmailOptOut = true;
+                break;
         }
 
         await contacts.UpdateAsync(contact, ct);

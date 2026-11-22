@@ -267,6 +267,9 @@ namespace ElectroMarketing.Infrastructure.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<bool>("PostOptOut")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PostalCode")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");

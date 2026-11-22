@@ -59,6 +59,13 @@ public sealed class CampaignSender(
         {
             foreach (var message in chunk)
             {
+                // The contact was loaded with this chunk, so an opt-out since the start of the campaign is honoured.
+                if (Skip(channel, message))
+                {
+                    await store.SaveAsync(CancellationToken.None);
+                    continue;
+                }
+
                 try
                 {
                     await send(message, ct);
@@ -82,9 +89,10 @@ public sealed class CampaignSender(
     /// <summary>One merged PDF for all queued letters; "sent" means printed-ready.</summary>
     private async Task RenderLettersAsync(Campaign campaign, CancellationToken ct)
     {
-        var queued = await store.NextQueuedAsync(campaign.Id, Channel.Post, int.MaxValue, ct);
+        var queued = (await store.NextQueuedAsync(campaign.Id, Channel.Post, int.MaxValue, ct)).Where(m => !Skip(Channel.Post, m)).ToList();
         if (queued.Count == 0)
         {
+            await store.SaveAsync(ct);
             return;
         }
 
@@ -119,5 +127,18 @@ public sealed class CampaignSender(
 
         // The campaign is loaded untracked: UpdateAsync saves it together with the tracked messages.
         await campaigns.UpdateAsync(campaign, ct);
+    }
+
+    /// <summary>Marks the message Skipped when the contact can no longer get it (opted out or data removed since the start).</summary>
+    private static bool Skip(Channel channel, CampaignMessage message)
+    {
+        if (RecipientRules.SkipReason(channel, message.Contact!) is not { } reason)
+        {
+            return false;
+        }
+
+        message.Status = MessageStatus.Skipped;
+        message.Error = reason;
+        return true;
     }
 }
