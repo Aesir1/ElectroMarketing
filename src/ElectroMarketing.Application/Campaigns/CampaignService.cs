@@ -22,6 +22,8 @@ public sealed record CampaignDto(
 
 public interface ICampaignStore
 {
+    Task<bool> ListExistsAsync(Guid listId, CancellationToken ct);
+
     /// <summary>Adds (does not save) one message per list member and selected channel; returns how many are Queued.</summary>
     Task<int> AddRecipientsAsync(Campaign campaign, CancellationToken ct);
 
@@ -35,6 +37,20 @@ public interface ICampaignStore
 public sealed class CampaignService(IRepository<Campaign, Guid> campaigns, ICampaignStore store, TimeProvider time)
     : CrudService<Campaign, Guid, CampaignDto, CampaignDto>(campaigns)
 {
+    public override async Task<Campaign> CreateAsync(CampaignDto dto, CancellationToken ct = default)
+    {
+        DtoValidator.Validate(dto);
+        await RequireListAsync(dto.ContactListId, ct);
+        return await base.CreateAsync(dto, ct);
+    }
+
+    public override async Task<Campaign> UpdateAsync(Guid id, CampaignDto dto, CancellationToken ct = default)
+    {
+        DtoValidator.Validate(dto);
+        await RequireListAsync(dto.ContactListId, ct);
+        return await base.UpdateAsync(id, dto, ct);
+    }
+
     public override async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
         await RequireDraftAsync(id, "Only draft campaigns can be deleted.", ct);
@@ -114,6 +130,14 @@ public sealed class CampaignService(IRepository<Campaign, Guid> campaigns, ICamp
         if (errors.Count > 0)
         {
             throw new DomainValidationException(errors);
+        }
+    }
+
+    private async Task RequireListAsync(Guid? listId, CancellationToken ct)
+    {
+        if (listId is { } id && !await store.ListExistsAsync(id, ct))
+        {
+            throw new DomainValidationException(new Dictionary<string, string[]> { ["contactListId"] = ["The contact list does not exist."] });
         }
     }
 

@@ -301,10 +301,10 @@ type Campaign {
 
 "One contact on one channel. Token is the random id in every link of this message."
 type CampaignMessage {
+  contact: Contact @authorize(policy: "contacts.read")
   id: UUID!
   campaignId: UUID!
   contactId: UUID!
-  contact: Contact
   channel: Channel!
   token: String!
   status: MessageStatus!
@@ -813,7 +813,11 @@ union ReplaceDocumentContentError = NotFoundError | ValidationError
 
 union RequestDocumentUploadError = ValidationError | ForbiddenError
 
-union StartCampaignError = NotFoundError | ValidationError | ConflictError
+union StartCampaignError =
+  | NotFoundError
+  | ValidationError
+  | ConflictError
+  | ConcurrencyError
 
 union StartImportError = NotFoundError | ValidationError
 

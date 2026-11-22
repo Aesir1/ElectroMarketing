@@ -98,4 +98,53 @@ public sealed class CampaignServiceTests(PostgresFixture db) : IAsyncLifetime
         (await read.Campaigns.SingleAsync(Ct)).ContactListId.ShouldBeNull();
         (await read.CampaignMessages.CountAsync(Ct)).ShouldBe(9);
     }
+
+    [Fact]
+    public async Task Start_regenerates_tokens_that_clash_with_stored_or_new_ones()
+    {
+        await using var ctx = db.Create();
+        var service = Service(ctx);
+        var first = await service.CreateAsync(Dto(), Ct);
+        var contactId = (await ctx.Contacts.FirstAsync(Ct)).Id;
+        ctx.CampaignMessages.Add(new CampaignMessage { CampaignId = first.Id, ContactId = contactId, Channel = Channel.Email, Token = "AAAAAAA", Status = MessageStatus.Skipped });
+        await ctx.SaveChangesAsync(Ct);
+
+        // The first 4 generated tokens equal the stored one (and each other), then random.
+        var calls = 0;
+        var clashing = new CampaignService(new Repository<Campaign, Guid>(ctx), new CampaignStore(ctx, () => calls++ < 4 ? "AAAAAAA" : ShortToken.New()), TimeProvider.System);
+        await clashing.StartAsync((await clashing.CreateAsync(Dto(), Ct)).Id, Ct);
+
+        await using var read = db.Create();
+        var tokens = await read.CampaignMessages.Select(m => m.Token).ToListAsync(Ct);
+        tokens.Count.ShouldBe(10);
+        tokens.Distinct().Count().ShouldBe(10);
+    }
+
+    [Fact]
+    public async Task Start_without_any_queueable_message_is_a_conflict()
+    {
+        await using var ctx = db.Create();
+        var unreachable = new ContactList { Name = "None" };
+        var contact = new Contact { Name = "Nope", Email = "no@x.de", EmailOptOut = true };
+        ctx.ContactLists.Add(unreachable);
+        ctx.Contacts.Add(contact);
+        ctx.ContactListMembers.Add(new ContactListMember { ContactListId = unreachable.Id, ContactId = contact.Id });
+        await ctx.SaveChangesAsync(Ct);
+        var service = Service(ctx);
+        var campaign = await service.CreateAsync(Dto(sms: false, post: false) with { ContactListId = unreachable.Id }, Ct);
+
+        await Should.ThrowAsync<ConflictException>(() => service.StartAsync(campaign.Id, Ct));
+    }
+
+    [Fact]
+    public async Task Unknown_contact_list_is_a_validation_error()
+    {
+        await using var ctx = db.Create();
+        var service = Service(ctx);
+        var dto = Dto() with { ContactListId = Guid.NewGuid() };
+
+        (await Should.ThrowAsync<ValidationException>(() => service.CreateAsync(dto, Ct))).Errors.Keys.ShouldBe(["contactListId"]);
+        var existing = await service.CreateAsync(Dto(), Ct);
+        await Should.ThrowAsync<ValidationException>(() => service.UpdateAsync(existing.Id, dto, Ct));
+    }
 }

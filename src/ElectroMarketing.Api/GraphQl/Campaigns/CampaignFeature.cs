@@ -75,6 +75,7 @@ public class CampaignMutations : RootMutation
     [Error<NotFoundError>]
     [Error<ValidationError>]
     [Error<ConflictError>]
+    [Error<ConcurrencyError>]
     public Task<Campaign> StartCampaign(Guid id, [Service] CampaignService campaigns, CancellationToken ct) => campaigns.StartAsync(id, ct);
 }
 
@@ -91,4 +92,11 @@ public sealed class CampaignType : ObjectType<Campaign>
 public sealed class CampaignMessageFilterType : FilterInputType<CampaignMessage>
 {
     protected override void Configure(IFilterInputTypeDescriptor<CampaignMessage> descriptor) => descriptor.Ignore(m => m.Contact);
+}
+
+/// <summary>The message exposes its contact, so reading it also needs contacts.read.</summary>
+public sealed class CampaignMessageType : ObjectType<CampaignMessage>
+{
+    protected override void Configure(IObjectTypeDescriptor<CampaignMessage> descriptor) =>
+        descriptor.Field(m => m.Contact).Authorize(Permissions.Contacts.Read);
 }
