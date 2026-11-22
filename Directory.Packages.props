@@ -66,6 +66,7 @@
 
   <ItemGroup Label="Imports">
     <PackageVersion Include="libphonenumber-csharp" Version="9.0.43" />
+    <PackageVersion Include="CsvHelper" Version="34.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Storage">
