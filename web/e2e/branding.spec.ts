@@ -7,7 +7,7 @@ test("start screen follows the branding file", async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await expect(page).toHaveScreenshot("start-electromarketing.png");
   const primary = await page
-    .getByRole("button", { name: "Sign in or register" })
+    .getByRole("button", { name: "Sign in" })
     .evaluate((b) => getComputedStyle(b).backgroundColor);
 
   await page.goto("http://localhost:3102/");
@@ -15,7 +15,7 @@ test("start screen follows the branding file", async ({ page }) => {
   await expect(page).toHaveTitle("Acme Cold Chain");
   await expect(page).toHaveScreenshot("start-acme.png");
   const altPrimary = await page
-    .getByRole("button", { name: "Sign in or register" })
+    .getByRole("button", { name: "Sign in" })
     .evaluate((b) => getComputedStyle(b).backgroundColor);
 
   expect(altPrimary).not.toBe(primary);

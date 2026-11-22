@@ -13,7 +13,7 @@ describe("StartScreen", () => {
 
     expect(screen.getByRole("heading", { name: "ElectroMarketing" })).toBeTruthy();
     expect(screen.getByText(branding.authScreen.tagline!)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign in or register" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
     const main = screen.getByTestId("start-screen");
     expect(main.style.backgroundImage).toContain("/brand/login-bg.svg");
     expect(main.querySelector(".justify-end")).toBeTruthy();

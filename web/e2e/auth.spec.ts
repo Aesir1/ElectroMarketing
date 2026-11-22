@@ -12,7 +12,7 @@ test("start screen is branded", async ({ page }) => {
 test("unauthenticated /app redirects to the start screen", async ({ page }) => {
   await page.goto("/app/documents");
   await expect(page).toHaveURL(/\/($|\?)/);
-  await expect(page.getByRole("button", { name: "Sign in or register" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
 test("user signs in, sees no admin link, and signs out of Keycloak too", async ({ page }) => {
@@ -21,7 +21,7 @@ test("user signs in, sees no admin link, and signs out of Keycloak too", async (
   await expect(page.getByRole("link", { name: "Admin · Queues" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByRole("button", { name: "Sign in or register" })).toBeVisible();
-  await page.getByRole("button", { name: "Sign in or register" }).click();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByLabel("Email")).toBeVisible(); // SSO session ended: Keycloak asks again
 });

@@ -54,7 +54,7 @@ internal sealed class KeycloakUsers(HttpClient http, SeedOptions options, ILogge
         return created;
     }
 
-    /// <summary>Safe for production: the login theme and the default <c>user</c> role for self-registered accounts.</summary>
+    /// <summary>Safe for production: the login theme and the default <c>user</c> role for new accounts.</summary>
     public async Task<int> SeedRealmAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.KeycloakAdminPassword))
@@ -104,7 +104,7 @@ internal sealed class KeycloakUsers(HttpClient http, SeedOptions options, ILogge
     }
 
     /// <summary>
-    /// Self-registered users get <paramref name="role"/>: it is added to the realm's default-roles composite
+    /// New users get <paramref name="role"/>: it is added to the realm's default-roles composite
     /// (the realm import's defaultRole block is not applied by Keycloak).
     /// </summary>
     private async Task<bool> EnsureDefaultRoleAsync(string role, CancellationToken ct)

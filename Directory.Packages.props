@@ -2,7 +2,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
-    <AspireVersion>13.5.4</AspireVersion>
+    <AspireVersion>13.6.5</AspireVersion>
     <HotChocolateVersion>16.6.7</HotChocolateVersion>
     <OpenTelemetryVersion>1.19.1</OpenTelemetryVersion>
   </PropertyGroup>
@@ -14,25 +14,25 @@
   </ItemGroup>
 
   <ItemGroup Label="Extensions">
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup Label="Aspire">
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="$(AspireVersion)" />
-    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.5.4-preview.1.26464.4" />
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.6.5-preview.1.26559.7" />
     <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="$(AspireVersion)" />
     <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.5.0" />
     <!-- Transitive via Aspire.Hosting -> StreamJsonRpc; 2.5.302 has GHSA-qhrr-8q5h-9q3h. Drop when Aspire ships a fixed StreamJsonRpc. -->
-    <PackageVersion Include="MessagePack" Version="2.5.303" />
+    <PackageVersion Include="MessagePack" Version="2.5.307" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.RabbitMQ.Client" Version="$(AspireVersion)" />
-    <PackageVersion Include="Aspire.Keycloak.Authentication" Version="13.5.4-preview.1.26464.4" />
+    <PackageVersion Include="Aspire.Keycloak.Authentication" Version="13.6.5-preview.1.26559.7" />
   </ItemGroup>
 
   <ItemGroup Label="ServiceDefaults">
@@ -46,11 +46,11 @@
   </ItemGroup>
 
   <ItemGroup Label="Data">
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.14" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
   </ItemGroup>

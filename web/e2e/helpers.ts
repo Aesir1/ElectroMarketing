@@ -8,7 +8,7 @@ export const users = {
 /** Start screen → Keycloak → back in /app. */
 export async function login(page: Page, { email, password }: { email: string; password: string }) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in or register" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign In" }).click();
