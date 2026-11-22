@@ -1,5 +1,7 @@
 using ElectroMarketing.Application.Abstractions;
 using ElectroMarketing.Application.Documents;
+using ElectroMarketing.Application.Imports;
+using ElectroMarketing.Domain.Contacts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -13,6 +15,9 @@ public static class DependencyInjection
         _ = configuration;
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<DocumentService>();
+        services.AddScoped<ImportService>();
+        services.AddScoped<CategoryService>();
+        services.AddScoped<IMessageHandler<ImportBatchChanged>, ImportRequestedHandler>();
         return services;
     }
 }

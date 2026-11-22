@@ -2,6 +2,7 @@ using System.Data.Common;
 using Amazon.Runtime;
 using Amazon.S3;
 using ElectroMarketing.Application.Abstractions;
+using ElectroMarketing.Application.Imports;
 using ElectroMarketing.Infrastructure.Messaging;
 using ElectroMarketing.Infrastructure.Persistence;
 using ElectroMarketing.Infrastructure.Persistence.Interceptors;
@@ -31,6 +32,7 @@ public static class DependencyInjection
         services.AddSingleton<OutboxInterceptor>();
 
         services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
+        services.AddScoped<IImportStore, ImportStore>();
 
         // Aspire injects ConnectionStrings:minio as "Endpoint=...;AccessKey=...;SecretKey=...".
         services.AddOptions<ObjectStorageOptions>()

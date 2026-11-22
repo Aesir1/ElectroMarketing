@@ -8,6 +8,8 @@ public static class MessagingTopology
     public const string DomainEvents = "domain-events";
     public const string DomainEventsDlx = "domain-events.dlx";
 
+    public const string ContactImportQueue = "contact-import";
+
     public static string DeadLetterQueue(string queue) => queue + ".dlq";
 
     public static async Task DeclareAsync(IChannel channel, CancellationToken ct)
@@ -15,6 +17,7 @@ public static class MessagingTopology
         // Domain events: topic exchange; the DLX is direct so each queue's dead letters land only in its own DLQ.
         await channel.ExchangeDeclareAsync(DomainEvents, ExchangeType.Topic, durable: true, cancellationToken: ct);
         await channel.ExchangeDeclareAsync(DomainEventsDlx, ExchangeType.Direct, durable: true, cancellationToken: ct);
+        await DeclareQueueAsync(channel, ContactImportQueue, DomainEvents, "import.created", DomainEventsDlx, ct);
     }
 
     /// <summary>Durable queue with its own DLQ, dead-lettered through <paramref name="deadLetterExchange"/> by queue name.</summary>
