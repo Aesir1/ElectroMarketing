@@ -100,6 +100,13 @@ builder.AddProject<Projects.ElectroMarketing_DbUtils>("dbutils-seed")
     .WaitFor(appDb)
     .WaitFor(keycloak);
 
+// Dev SMTP: every campaign e-mail lands in the Mailpit inbox (UI on the "ui" endpoint).
+var mailpit = builder.AddContainer("mailpit", "axllent/mailpit", "v1.33.1")
+    .WithHttpEndpoint(port: 8025, targetPort: 8025, name: "ui")
+    .WithEndpoint(port: 1025, targetPort: 1025, name: "smtp", scheme: "tcp")
+    .WithLifetime(ContainerLifetime.Persistent);
+var smtp = mailpit.GetEndpoint("smtp");
+
 var api = builder.AddProject<Projects.ElectroMarketing_Api>("api", launchProfileName: "https")
     .WithEnvironment("OTEL_COLLECTOR_ENDPOINT", observability.OtlpHttp)
     .WithReference(appDb)
@@ -108,10 +115,15 @@ var api = builder.AddProject<Projects.ElectroMarketing_Api>("api", launchProfile
     .WithReference(rabbitmq)
     .WithReference(minio)
     .WithEnvironment("Messaging__ManagementUrl", rabbitmq.GetEndpoint("management"))
+    .WithEnvironment("Smtp__Host", smtp.Property(EndpointProperty.Host))
+    .WithEnvironment("Smtp__Port", smtp.Property(EndpointProperty.Port))
     .WaitForCompletion(migrate)
     .WaitFor(keycloak)
     .WaitFor(rabbitmq)
-    .WaitFor(minio);
+    .WaitFor(minio)
+    .WaitFor(mailpit);
+
+api.WithEnvironment("Tracking__BaseUrl", api.GetEndpoint("https"));
 
 var repoRoot = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..", ".."));
 

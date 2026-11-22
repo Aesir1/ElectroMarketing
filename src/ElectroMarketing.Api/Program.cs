@@ -2,6 +2,7 @@ using ElectroMarketing.Api;
 using ElectroMarketing.Application;
 using ElectroMarketing.Auth;
 using ElectroMarketing.Infrastructure;
+using ElectroMarketing.Infrastructure.Campaigns;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.User.json", optional: true, reloadOnChange: true)
@@ -11,6 +12,7 @@ builder.Configuration.AddJsonFile("appsettings.User.json", optional: true, reloa
 builder.AddServiceDefaults();
 builder.Services.AddApplication(builder.Configuration);
 builder.AddInfrastructure();
+builder.Services.AddCampaignSending(builder.Configuration);
 builder.AddMessaging();
 builder.AddElectroMarketingAuth();
 builder.Services.AddApi(builder.Configuration, builder.Environment.IsDevelopment());

@@ -145,6 +145,20 @@ services:
       ConnectionStrings__rabbitmq: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
       ConnectionStrings__minio: Endpoint=http://minio:9000;AccessKey=${API_S3_ACCESS_KEY};SecretKey=${API_S3_SECRET_KEY}
       Messaging__ManagementUrl: http://rabbitmq:15672
+      Smtp__Host: ${SMTP_HOST:?set SMTP_HOST in .env}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__UseStartTls: ${SMTP_USE_STARTTLS:-true}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:?set SMTP_FROM in .env}
+      # Leave TWILIO_ACCOUNT_SID empty to log SMS instead of sending them.
+      Twilio__AccountSid: ${TWILIO_ACCOUNT_SID:-}
+      Twilio__AuthToken: ${TWILIO_AUTH_TOKEN:-}
+      Twilio__From: ${TWILIO_FROM:-}
+      # Short public origin of the tracking links (a short domain routed to the api), and the web app origin.
+      Tracking__BaseUrl: ${TRACKING_BASE_URL:?set TRACKING_BASE_URL in .env}
+      Tracking__LandingBaseUrl: https://${APP_DOMAIN}
+      Campaigns__SenderLine: ${CAMPAIGN_SENDER_LINE:?set CAMPAIGN_SENDER_LINE in .env}
       # Keycloak over the private network. Tokens still carry the public issuer (KC_HOSTNAME), which the
       # metadata fetched from here reports, so issuer validation is unchanged.
       services__keycloak__http__0: http://keycloak:8080
