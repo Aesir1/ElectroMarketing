@@ -40,6 +40,13 @@ public static class Permissions
         public const string Write = "lists.write";
     }
 
+    public static class Campaigns
+    {
+        public const string Read = "campaigns.read";
+        public const string Write = "campaigns.write";
+        public const string Send = "campaigns.send";
+    }
+
     public static class Queues
     {
         public const string Manage = "queues.manage";

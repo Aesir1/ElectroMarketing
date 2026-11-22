@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using ElectroMarketing.Domain.Abstractions;
+using ElectroMarketing.Domain.Campaigns;
 using ElectroMarketing.Domain.Contacts;
 using ElectroMarketing.Domain.Documents;
 using ElectroMarketing.Domain.Lists;
@@ -26,6 +27,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ContactList> ContactLists => Set<ContactList>();
 
     public DbSet<ContactListMember> ContactListMembers => Set<ContactListMember>();
+
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+
+    public DbSet<CampaignMessage> CampaignMessages => Set<CampaignMessage>();
+
+    public DbSet<TrackingEvent> TrackingEvents => Set<TrackingEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

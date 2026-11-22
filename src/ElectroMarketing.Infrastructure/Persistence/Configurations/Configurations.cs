@@ -1,3 +1,4 @@
+using ElectroMarketing.Domain.Campaigns;
 using ElectroMarketing.Domain.Contacts;
 using ElectroMarketing.Domain.Documents;
 using ElectroMarketing.Domain.Lists;
@@ -112,5 +113,47 @@ internal sealed class ContactListMemberConfiguration : IEntityTypeConfiguration<
         b.HasKey(m => new { m.ContactListId, m.ContactId });
         b.HasOne(m => m.Contact).WithMany().HasForeignKey(m => m.ContactId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(m => m.ContactId);
+    }
+}
+
+internal sealed class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
+{
+    public void Configure(EntityTypeBuilder<Campaign> b)
+    {
+        b.Property(c => c.Name).HasMaxLength(200);
+        b.Property(c => c.EmailSubject).HasMaxLength(300);
+        b.Property(c => c.SmsText).HasMaxLength(1000);
+        b.Property(c => c.LandingTitle).HasMaxLength(200);
+        b.Property(c => c.Status).HasConversion<string>().HasMaxLength(16);
+        b.HasOne<ContactList>().WithMany().HasForeignKey(c => c.ContactListId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(c => c.Status);
+    }
+}
+
+internal sealed class CampaignMessageConfiguration : IEntityTypeConfiguration<CampaignMessage>
+{
+    public void Configure(EntityTypeBuilder<CampaignMessage> b)
+    {
+        b.Property(m => m.Id).ValueGeneratedNever();
+        b.Property(m => m.Token).HasMaxLength(ShortToken.Length).IsFixedLength();
+        b.Property(m => m.Channel).HasConversion<string>().HasMaxLength(16);
+        b.Property(m => m.Status).HasConversion<string>().HasMaxLength(16);
+        b.Property(m => m.Error).HasMaxLength(500);
+        b.HasIndex(m => m.Token).IsUnique();
+        b.HasIndex(m => new { m.CampaignId, m.Channel, m.Status });
+        b.HasOne<Campaign>().WithMany().HasForeignKey(m => m.CampaignId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(m => m.Contact).WithMany().HasForeignKey(m => m.ContactId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class TrackingEventConfiguration : IEntityTypeConfiguration<TrackingEvent>
+{
+    public void Configure(EntityTypeBuilder<TrackingEvent> b)
+    {
+        b.Property(e => e.Id).ValueGeneratedNever();
+        b.Property(e => e.Type).HasConversion<string>().HasMaxLength(16);
+        b.Property(e => e.UserAgent).HasMaxLength(512);
+        b.HasOne(e => e.Message).WithMany().HasForeignKey(e => e.MessageId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(e => new { e.MessageId, e.Type });
     }
 }

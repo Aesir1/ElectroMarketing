@@ -5,6 +5,52 @@ schema {
 
 "Every non-abstract subclass is registered as an extension of the Query type (source-generated registration, see GraphQlSetup)."
 type Query {
+  campaigns(
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    where: CampaignFilterInput @cost(weight: "10")
+    order: [CampaignSortInput!] @cost(weight: "10")
+  ): CampaignsConnection
+    @authorize(policy: "campaigns.read")
+    @listSize(
+      assumedSize: 100
+      slicingArguments: ["first", "last"]
+      slicingArgumentDefaultValue: 10
+      sizedFields: ["edges", "nodes"]
+      requireOneSlicingArgument: false
+    )
+    @cost(weight: "10")
+  campaign(id: UUID!): Campaign
+    @authorize(policy: "campaigns.read")
+    @cost(weight: "10")
+  campaignMessages(
+    campaignId: UUID!
+    "Returns the first _n_ elements from the list."
+    first: Int
+    "Returns the elements in the list that come after the specified cursor."
+    after: String
+    "Returns the last _n_ elements from the list."
+    last: Int
+    "Returns the elements in the list that come before the specified cursor."
+    before: String
+    where: CampaignMessageFilterInput @cost(weight: "10")
+    order: [CampaignMessageSortInput!] @cost(weight: "10")
+  ): CampaignMessagesConnection
+    @authorize(policy: "campaigns.read")
+    @listSize(
+      assumedSize: 100
+      slicingArguments: ["first", "last"]
+      slicingArgumentDefaultValue: 10
+      sizedFields: ["edges", "nodes"]
+      requireOneSlicingArgument: false
+    )
+    @cost(weight: "10")
   contact(id: UUID!): Contact
     @authorize(policy: "contacts.read")
     @cost(weight: "10")
@@ -146,6 +192,19 @@ type Query {
 
 "Every non-abstract subclass is registered as an extension of the Mutation type (source-generated registration, see GraphQlSetup)."
 type Mutation {
+  createCampaign(input: CreateCampaignInput!): CreateCampaignPayload!
+    @authorize(policy: "campaigns.write")
+    @cost(weight: "10")
+  updateCampaign(input: UpdateCampaignInput!): UpdateCampaignPayload!
+    @authorize(policy: "campaigns.write")
+    @cost(weight: "10")
+  deleteCampaign(input: DeleteCampaignInput!): DeleteCampaignPayload!
+    @authorize(policy: "campaigns.write")
+    @cost(weight: "10")
+  "Snapshots the list and queues the messages; the dispatcher sends them in the background."
+  startCampaign(input: StartCampaignInput!): StartCampaignPayload!
+    @authorize(policy: "campaigns.send")
+    @cost(weight: "10")
   "Creates a Pending document and returns the path to PUT its content to (max 25 MB, allow-listed types)."
   requestDocumentUpload(input: RequestDocumentUploadInput!): RequestDocumentUploadPayload!
     @authorize(policy: "documents.write")
@@ -210,6 +269,90 @@ type AddToContactListPayload {
   errors: [AddToContactListError!]
 }
 
+"Editable while Draft. Starting it snapshots the list into CampaignMessage rows."
+type Campaign {
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedInt!
+  name: String!
+  "Null after the list was deleted; sent campaigns keep their messages."
+  contactListId: UUID
+  sendEmail: Boolean!
+  sendSms: Boolean!
+  sendPost: Boolean!
+  emailSubject: String
+  "HTML with placeholders {{Name}}, {{Link}}, {{UnsubscribeLink}}."
+  emailBody: String
+  smsText: String
+  letterBody: String
+  landingTitle: String
+  "Plain text shown on the public landing page."
+  landingBody: String
+  status: CampaignStatus!
+  startedAtUtc: DateTime
+  finishedAtUtc: DateTime
+  "The merged letters PDF exists at Guid)."
+  lettersReady: Boolean!
+  id: UUID!
+  createdAtUtc: DateTime!
+  createdBy: String
+  updatedAtUtc: DateTime
+  updatedBy: String
+}
+
+"One contact on one channel. Token is the random id in every link of this message."
+type CampaignMessage {
+  id: UUID!
+  campaignId: UUID!
+  contactId: UUID!
+  contact: Contact
+  channel: Channel!
+  token: String!
+  status: MessageStatus!
+  sentAtUtc: DateTime
+  "Failure message or skip reason."
+  error: String
+}
+
+"A connection to a list of items."
+type CampaignMessagesConnection {
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "A list of edges."
+  edges: [CampaignMessagesEdge!]
+  "A flattened list of the nodes."
+  nodes: [CampaignMessage!]
+  "Identifies the total count of items in the connection."
+  totalCount: Int! @cost(weight: "10")
+}
+
+"An edge in a connection."
+type CampaignMessagesEdge {
+  "A cursor for use in pagination."
+  cursor: String!
+  "The item at the end of the edge."
+  node: CampaignMessage!
+}
+
+"A connection to a list of items."
+type CampaignsConnection {
+  "Information to aid in pagination."
+  pageInfo: PageInfo!
+  "A list of edges."
+  edges: [CampaignsEdge!]
+  "A flattened list of the nodes."
+  nodes: [Campaign!]
+  "Identifies the total count of items in the connection."
+  totalCount: Int! @cost(weight: "10")
+}
+
+"An edge in a connection."
+type CampaignsEdge {
+  "A cursor for use in pagination."
+  cursor: String!
+  "The item at the end of the edge."
+  node: Campaign!
+}
+
 type Category {
   "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
   rowVersion: UnsignedInt!
@@ -231,6 +374,11 @@ type ColumnMapping {
   city: String
   country: String
   obtainedOn: String
+}
+
+type ConcurrencyError implements Error {
+  message: String!
+  code: String!
 }
 
 type ConfirmDocumentUploadPayload {
@@ -380,6 +528,11 @@ type ContactsEdge {
   node: Contact!
 }
 
+type CreateCampaignPayload {
+  campaign: Campaign
+  errors: [CreateCampaignError!]
+}
+
 type CreateCategoryPayload {
   category: Category
   errors: [CreateCategoryError!]
@@ -405,6 +558,11 @@ type CsvPreview {
 
 type DeclareQueuePayload {
   string: String
+}
+
+type DeleteCampaignPayload {
+  uuid: UUID
+  errors: [DeleteCampaignError!]
 }
 
 type DeleteContactListPayload {
@@ -593,9 +751,19 @@ type RequestDocumentUploadPayload {
   errors: [RequestDocumentUploadError!]
 }
 
+type StartCampaignPayload {
+  campaign: Campaign
+  errors: [StartCampaignError!]
+}
+
 type StartImportPayload {
   importBatch: ImportBatch
   errors: [StartImportError!]
+}
+
+type UpdateCampaignPayload {
+  campaign: Campaign
+  errors: [UpdateCampaignError!]
 }
 
 type ValidationError implements Error {
@@ -619,11 +787,15 @@ union AddToContactListError = NotFoundError | ValidationError
 
 union ConfirmDocumentUploadError = NotFoundError | ConflictError
 
+union CreateCampaignError = ValidationError
+
 union CreateCategoryError = ValidationError | ConflictError
 
 union CreateContactListError = ValidationError
 
 union CreateContactListFromBatchError = NotFoundError | ValidationError
+
+union DeleteCampaignError = NotFoundError | ConflictError
 
 union DeleteContactListError = NotFoundError
 
@@ -641,7 +813,15 @@ union ReplaceDocumentContentError = NotFoundError | ValidationError
 
 union RequestDocumentUploadError = ValidationError | ForbiddenError
 
+union StartCampaignError = NotFoundError | ValidationError | ConflictError
+
 union StartImportError = NotFoundError | ValidationError
+
+union UpdateCampaignError =
+  | NotFoundError
+  | ValidationError
+  | ConflictError
+  | ConcurrencyError
 
 input AddToContactListInput {
   listId: UUID!
@@ -652,6 +832,118 @@ input AddToContactListInput {
 input BooleanOperationFilterInput {
   eq: Boolean @cost(weight: "10")
   neq: Boolean @cost(weight: "10")
+}
+
+input CampaignDtoInput {
+  name: String!
+  contactListId: UUID
+  sendEmail: Boolean!
+  sendSms: Boolean!
+  sendPost: Boolean!
+  emailSubject: String
+  emailBody: String
+  smsText: String
+  letterBody: String
+  landingTitle: String
+  landingBody: String
+}
+
+"Editable while Draft. Starting it snapshots the list into CampaignMessage rows."
+input CampaignFilterInput {
+  and: [CampaignFilterInput!]
+  or: [CampaignFilterInput!]
+  name: StringOperationFilterInput
+  "Null after the list was deleted; sent campaigns keep their messages."
+  contactListId: UuidOperationFilterInput
+  sendEmail: BooleanOperationFilterInput
+  sendSms: BooleanOperationFilterInput
+  sendPost: BooleanOperationFilterInput
+  emailSubject: StringOperationFilterInput
+  "HTML with placeholders {{Name}}, {{Link}}, {{UnsubscribeLink}}."
+  emailBody: StringOperationFilterInput
+  smsText: StringOperationFilterInput
+  letterBody: StringOperationFilterInput
+  landingTitle: StringOperationFilterInput
+  "Plain text shown on the public landing page."
+  landingBody: StringOperationFilterInput
+  status: CampaignStatusOperationFilterInput
+  startedAtUtc: DateTimeOperationFilterInput
+  finishedAtUtc: DateTimeOperationFilterInput
+  "The merged letters PDF exists at Guid)."
+  lettersReady: BooleanOperationFilterInput
+  id: UuidOperationFilterInput
+  createdAtUtc: DateTimeOperationFilterInput
+  createdBy: StringOperationFilterInput
+  updatedAtUtc: DateTimeOperationFilterInput
+  updatedBy: StringOperationFilterInput
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: UnsignedIntOperationFilterInput
+}
+
+"One contact on one channel. Token is the random id in every link of this message."
+input CampaignMessageFilterInput {
+  and: [CampaignMessageFilterInput!]
+  or: [CampaignMessageFilterInput!]
+  id: UuidOperationFilterInput
+  campaignId: UuidOperationFilterInput
+  contactId: UuidOperationFilterInput
+  channel: ChannelOperationFilterInput
+  token: StringOperationFilterInput
+  status: MessageStatusOperationFilterInput
+  sentAtUtc: DateTimeOperationFilterInput
+  "Failure message or skip reason."
+  error: StringOperationFilterInput
+}
+
+"One contact on one channel. Token is the random id in every link of this message."
+input CampaignMessageSortInput {
+  id: SortEnumType @cost(weight: "10")
+  campaignId: SortEnumType @cost(weight: "10")
+  contactId: SortEnumType @cost(weight: "10")
+  contact: ContactSortInput @cost(weight: "10")
+  channel: SortEnumType @cost(weight: "10")
+  token: SortEnumType @cost(weight: "10")
+  status: SortEnumType @cost(weight: "10")
+  sentAtUtc: SortEnumType @cost(weight: "10")
+  "Failure message or skip reason."
+  error: SortEnumType @cost(weight: "10")
+}
+
+"Editable while Draft. Starting it snapshots the list into CampaignMessage rows."
+input CampaignSortInput {
+  name: SortEnumType @cost(weight: "10")
+  "Null after the list was deleted; sent campaigns keep their messages."
+  contactListId: SortEnumType @cost(weight: "10")
+  sendEmail: SortEnumType @cost(weight: "10")
+  sendSms: SortEnumType @cost(weight: "10")
+  sendPost: SortEnumType @cost(weight: "10")
+  emailSubject: SortEnumType @cost(weight: "10")
+  "HTML with placeholders {{Name}}, {{Link}}, {{UnsubscribeLink}}."
+  emailBody: SortEnumType @cost(weight: "10")
+  smsText: SortEnumType @cost(weight: "10")
+  letterBody: SortEnumType @cost(weight: "10")
+  landingTitle: SortEnumType @cost(weight: "10")
+  "Plain text shown on the public landing page."
+  landingBody: SortEnumType @cost(weight: "10")
+  status: SortEnumType @cost(weight: "10")
+  startedAtUtc: SortEnumType @cost(weight: "10")
+  finishedAtUtc: SortEnumType @cost(weight: "10")
+  "The merged letters PDF exists at Guid)."
+  lettersReady: SortEnumType @cost(weight: "10")
+  id: SortEnumType @cost(weight: "10")
+  createdAtUtc: SortEnumType @cost(weight: "10")
+  createdBy: SortEnumType @cost(weight: "10")
+  updatedAtUtc: SortEnumType @cost(weight: "10")
+  updatedBy: SortEnumType @cost(weight: "10")
+  "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
+  rowVersion: SortEnumType @cost(weight: "10")
+}
+
+input CampaignStatusOperationFilterInput {
+  eq: CampaignStatus @cost(weight: "10")
+  neq: CampaignStatus @cost(weight: "10")
+  in: [CampaignStatus!] @cost(weight: "10")
+  nin: [CampaignStatus!] @cost(weight: "10")
 }
 
 input CategoryFilterInput {
@@ -676,6 +968,13 @@ input CategorySortInput {
   updatedBy: SortEnumType @cost(weight: "10")
   "PostgreSQL xmin. Send back the value you read to detect concurrent updates."
   rowVersion: SortEnumType @cost(weight: "10")
+}
+
+input ChannelOperationFilterInput {
+  eq: Channel @cost(weight: "10")
+  neq: Channel @cost(weight: "10")
+  in: [Channel!] @cost(weight: "10")
+  nin: [Channel!] @cost(weight: "10")
 }
 
 "CSV header name for each contact field; null when the file has no such column."
@@ -771,6 +1070,10 @@ input ContactSortInput {
   rowVersion: SortEnumType @cost(weight: "10")
 }
 
+input CreateCampaignInput {
+  campaign: CampaignDtoInput!
+}
+
 input CreateCategoryInput {
   name: String!
 }
@@ -802,6 +1105,10 @@ input DateTimeOperationFilterInput {
 input DeclareQueueInput {
   name: String!
   routingKey: String!
+}
+
+input DeleteCampaignInput {
+  id: UUID!
 }
 
 input DeleteContactListInput {
@@ -969,6 +1276,13 @@ input LongOperationFilterInput {
   nlte: Long @cost(weight: "10")
 }
 
+input MessageStatusOperationFilterInput {
+  eq: MessageStatus @cost(weight: "10")
+  neq: MessageStatus @cost(weight: "10")
+  in: [MessageStatus!] @cost(weight: "10")
+  nin: [MessageStatus!] @cost(weight: "10")
+}
+
 input PreviewImportInput {
   documentId: UUID!
 }
@@ -1002,6 +1316,10 @@ input RequestDocumentUploadInput {
   fileName: String!
   contentType: String!
   sizeBytes: Long!
+}
+
+input StartCampaignInput {
+  id: UUID!
 }
 
 input StartImportInput {
@@ -1041,6 +1359,11 @@ input UnsignedIntOperationFilterInput {
   nlte: UnsignedInt @cost(weight: "10")
 }
 
+input UpdateCampaignInput {
+  id: UUID!
+  campaign: CampaignDtoInput!
+}
+
 input UuidOperationFilterInput {
   eq: UUID @cost(weight: "10")
   neq: UUID @cost(weight: "10")
@@ -1066,6 +1389,18 @@ enum ApplyPolicy {
   VALIDATION
 }
 
+enum CampaignStatus {
+  DRAFT
+  SENDING
+  SENT
+}
+
+enum Channel {
+  EMAIL
+  SMS
+  POST
+}
+
 enum ContactChange {
   CREATED
   UPDATED
@@ -1082,6 +1417,13 @@ enum ImportStatus {
   RUNNING
   DONE
   FAILED
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
 }
 
 enum SortEnumType {
