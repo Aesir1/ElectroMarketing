@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { graphql } from "@/gql";
 import type { ContactListMembersQuery, ContactListsQuery } from "@/gql/graphql";
 import { execute } from "@/lib/graphql";
@@ -95,6 +95,15 @@ export function ListsPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const openReq = useRef(0);
+
+  async function guard(fn: () => Promise<void>) {
+    try {
+      await fn();
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+  }
 
   const load = useCallback(
     () => execute(ContactListsDocument).then((d) => setLists(d.contactLists?.nodes ?? []), (e: Error) => setMessage(e.message)),
@@ -105,35 +114,48 @@ export function ListsPage() {
     load();
   }, [load]);
 
-  async function openList(list: List, after: string | null = null) {
-    const d = await execute(ContactListMembersDocument, { listId: list.id, after });
-    setOpen(list);
-    setMembers((m) => [...(after ? m : []), ...(d.contactListMembers?.nodes ?? [])]);
-    setCursor(d.contactListMembers?.pageInfo.hasNextPage ? (d.contactListMembers.pageInfo.endCursor ?? null) : null);
-  }
+  const openList = (list: List, after: string | null = null) =>
+    guard(async () => {
+      const id = ++openReq.current;
+      const d = await execute(ContactListMembersDocument, { listId: list.id, after });
+      if (id !== openReq.current) return;
+      setOpen(list);
+      setMembers((m) => [...(after ? m : []), ...(d.contactListMembers?.nodes ?? [])]);
+      setCursor(d.contactListMembers?.pageInfo.hasNextPage ? (d.contactListMembers.pageInfo.endCursor ?? null) : null);
+    });
 
-  async function rename(list: List) {
-    const name = window.prompt("List name", list.name);
-    if (!name) return;
-    const { renameContactList } = await execute(RenameListDocument, { input: { id: list.id, name } });
-    setMessage(messageOf(renameContactList.errors));
-    await load();
-  }
+  const rename = (list: List) =>
+    guard(async () => {
+      const name = window.prompt("List name", list.name);
+      if (!name) return;
+      const { renameContactList } = await execute(RenameListDocument, { input: { id: list.id, name } });
+      setMessage(messageOf(renameContactList.errors));
+      await load();
+    });
 
-  async function remove(list: List) {
-    if (!window.confirm(`Delete list "${list.name}"? Contacts stay.`)) return;
-    const { deleteContactList } = await execute(DeleteListDocument, { input: { id: list.id } });
-    setMessage(messageOf(deleteContactList.errors));
-    if (open?.id === list.id) setOpen(null);
-    await load();
-  }
+  const remove = (list: List) =>
+    guard(async () => {
+      if (!window.confirm(`Delete list "${list.name}"? Contacts stay.`)) return;
+      const { deleteContactList } = await execute(DeleteListDocument, { input: { id: list.id } });
+      setMessage(messageOf(deleteContactList.errors));
+      if (open?.id === list.id) {
+        openReq.current++;
+        setOpen(null);
+      }
+      await load();
+    });
 
-  async function removeMember(contactId: string) {
-    if (!open) return;
-    await execute(RemoveFromListDocument, { input: { listId: open.id, contactIds: [contactId] } });
-    setMembers((m) => m.filter((x) => x.contact?.id !== contactId));
-    await load();
-  }
+  const removeMember = (contactId: string) =>
+    guard(async () => {
+      if (!open) return;
+      const { removeFromContactList } = await execute(RemoveFromListDocument, {
+        input: { listId: open.id, contactIds: [contactId] },
+      });
+      const err = messageOf(removeFromContactList.errors);
+      if (err) return setMessage(err);
+      setMembers((m) => m.filter((x) => x.contact?.id !== contactId));
+      await load();
+    });
 
   return (
     <div className="space-y-6">
@@ -180,18 +202,18 @@ export function ListsPage() {
           </p>
           <table className="w-full text-sm">
             <tbody>
-              {members.map((m) => (
-                <tr key={m.contact?.id} className="border-t border-border">
+              {members.flatMap((m) => (m.contact ? [{ ...m, contact: m.contact }] : [])).map((m) => (
+                <tr key={m.contact.id} className="border-t border-border">
                   <td className="px-2 py-1">
-                    <Link href={`/app/contacts/${m.contact?.id}`} className="underline">
-                      {m.contact?.name ?? m.contact?.email}
+                    <Link href={`/app/contacts/${m.contact.id}`} className="underline">
+                      {m.contact.name ?? m.contact.email}
                     </Link>
                   </td>
-                  <td className="px-2 py-1">{m.contact?.email}</td>
-                  <td className="px-2 py-1">{m.contact?.phone}</td>
-                  <td className="px-2 py-1">{m.contact?.city}</td>
+                  <td className="px-2 py-1">{m.contact.email}</td>
+                  <td className="px-2 py-1">{m.contact.phone}</td>
+                  <td className="px-2 py-1">{m.contact.city}</td>
                   <td className="px-2 py-1">
-                    <button type="button" onClick={() => removeMember(m.contact!.id)} className="underline">
+                    <button type="button" onClick={() => removeMember(m.contact.id)} className="underline">
                       Remove
                     </button>
                   </td>

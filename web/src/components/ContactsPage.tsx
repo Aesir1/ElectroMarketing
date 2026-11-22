@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { graphql } from "@/gql";
 import type { ContactsQuery, ContactFilterInput } from "@/gql/graphql";
 import { execute } from "@/lib/graphql";
@@ -92,6 +92,9 @@ export function ContactsPage() {
   const [listId, setListId] = useState("");
   const [newList, setNewList] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<ContactFilterInput | null>(null); // filter the rows belong to
+  const [more, setMore] = useState(false);
+  const req = useRef(0); // id of the newest fetch; older responses are dropped
 
   useEffect(() => {
     execute(ContactsPageDataDocument).then(
@@ -114,27 +117,40 @@ export function ContactsPage() {
   );
 
   useEffect(() => {
-    let current = true;
+    const id = ++req.current;
     execute(ContactsDocument, { filter, after: null }).then(
       (d) => {
-        if (!current) return;
+        if (id !== req.current) return;
         setRows(d.contacts?.nodes ?? []);
         setTotal(d.contacts?.totalCount ?? 0);
         // The selection survives new searches, so contacts from several searches can be added at once.
         setCursor(d.contacts?.pageInfo.hasNextPage ? (d.contacts.pageInfo.endCursor ?? null) : null);
+        setLoaded(filter);
       },
-      (e: Error) => setMessage(e.message),
+      (e: Error) => {
+        if (id !== req.current) return;
+        setMessage(e.message);
+        setLoaded(filter);
+      },
     );
-    return () => {
-      current = false;
-    };
   }, [filter]);
 
   async function loadMore() {
-    const d = await execute(ContactsDocument, { filter, after: cursor });
-    setRows((r) => [...r, ...(d.contacts?.nodes ?? [])]);
-    setCursor(d.contacts?.pageInfo.hasNextPage ? (d.contacts.pageInfo.endCursor ?? null) : null);
+    const id = ++req.current;
+    setMore(true);
+    try {
+      const d = await execute(ContactsDocument, { filter, after: cursor });
+      if (id !== req.current) return;
+      setRows((r) => [...r, ...(d.contacts?.nodes ?? [])]);
+      setCursor(d.contacts?.pageInfo.hasNextPage ? (d.contacts.pageInfo.endCursor ?? null) : null);
+    } catch (e) {
+      if (id === req.current) setMessage((e as Error).message);
+    } finally {
+      setMore(false);
+    }
   }
+
+  const loading = loaded !== filter || more;
 
   function toggle(id: string) {
     setSelected((s) => {
@@ -234,7 +250,7 @@ export function ContactsPage() {
         </button>
         <button
           type="button"
-          disabled={total === 0}
+          disabled={total === 0 || loading || debounced !== search.trim()}
           onClick={() => addTo({ filter })}
           className="rounded-md border border-border px-3 py-1 disabled:opacity-50"
         >
@@ -281,7 +297,7 @@ export function ContactsPage() {
         {rows.length} of {total}
       </p>
       {cursor && (
-        <button type="button" onClick={loadMore} className="underline">
+        <button type="button" disabled={loading} onClick={loadMore} className="underline disabled:opacity-50">
           Load more
         </button>
       )}
