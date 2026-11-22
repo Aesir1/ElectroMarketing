@@ -1,1 +1,23 @@
-<Solution />
+<Solution>
+  <Folder Name="/aspire/">
+    <Project Path="aspire/ElectroMarketing.AppHost/ElectroMarketing.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ElectroMarketing.Api/ElectroMarketing.Api.csproj" />
+    <Project Path="src/ElectroMarketing.Application/ElectroMarketing.Application.csproj" />
+    <Project Path="src/ElectroMarketing.Auth/ElectroMarketing.Auth.csproj" />
+    <Project Path="src/ElectroMarketing.DbUtils/ElectroMarketing.DbUtils.csproj" />
+    <Project Path="src/ElectroMarketing.Domain/ElectroMarketing.Domain.csproj" />
+    <Project Path="src/ElectroMarketing.Infrastructure/ElectroMarketing.Infrastructure.csproj" />
+    <Project Path="src/ElectroMarketing.ServiceDefaults/ElectroMarketing.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ElectroMarketing.Api.Tests/ElectroMarketing.Api.Tests.csproj" />
+    <Project Path="tests/ElectroMarketing.Application.Tests/ElectroMarketing.Application.Tests.csproj" />
+    <Project Path="tests/ElectroMarketing.Auth.Tests/ElectroMarketing.Auth.Tests.csproj" />
+    <Project Path="tests/ElectroMarketing.DbUtils.Tests/ElectroMarketing.DbUtils.Tests.csproj" />
+    <Project Path="tests/ElectroMarketing.Domain.Tests/ElectroMarketing.Domain.Tests.csproj" />
+    <Project Path="tests/ElectroMarketing.Infrastructure.Tests/ElectroMarketing.Infrastructure.Tests.csproj" />
+    <Project Path="tests/ElectroMarketing.IntegrationTests/ElectroMarketing.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="Npgsql" />
+    <ProjectReference Include="..\..\aspire\ElectroMarketing.AppHost\ElectroMarketing.AppHost.csproj" />
+  </ItemGroup>
+</Project>

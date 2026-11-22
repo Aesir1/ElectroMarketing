@@ -1,0 +1,15 @@
+# NF-3: gitleaks runs in CI. Local development defaults are intentionally committed (AS-3); real
+# secrets come from user secrets / Key Vault and are never in git.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local dev defaults and test fixtures"
+paths = [
+  '''aspire/ElectroMarketing\.AppHost/appsettings\.json''',
+  '''aspire/ElectroMarketing\.AppHost/keycloak/realms/.*\.json''',
+  '''tests/.*''',
+  '''web/src/gql/.*''',
+  # Graphify cache: path-to-hash maps; hashes false-positive as generic-api-key.
+  '''graphify-out/.*''',
+]

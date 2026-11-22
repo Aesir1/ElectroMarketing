@@ -1,0 +1,215 @@
+# Deploys main to the production server once ci has passed for that commit. ci already pushed the
+# images to GHCR tagged with the commit SHA (its images job); this workflow only ships and activates.
+#
+#   ci (green on main) -> upload the stack files as ~/electromarketing/releases/<sha> on the server
+#                      -> release.sh activate <sha>: pull, up, wait until every service is healthy
+#                      -> smoke test through Caddy, then the external security check
+#   activation fails   -> release.sh restore   (the previous release is started again)
+#   smoke test fails   -> release.sh rollback  (back to the previous release)
+#
+# Setup (secrets, variables, server): server-provision/README.md.
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# One deployment at a time, shared with rollback.yml; a running one is never cancelled.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  # Only for manual runs (deploying a branch that ci never pushed images for): build and push the
+  # images for this SHA. The normal workflow_run path skips this job and reuses the images ci's
+  # images job already pushed. Same build block as ci.yml images — keep them in sync.
+  images:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { name: api, context: ., dockerfile: src/ElectroMarketing.Api/Dockerfile }
+          - { name: dbutils, context: ., dockerfile: src/ElectroMarketing.DbUtils/Dockerfile }
+          - { name: web, context: web, dockerfile: web/Dockerfile }
+          - { name: minio-init, context: docker/minio-init, dockerfile: docker/minio-init/Dockerfile }
+          - { name: caddy, context: docker/caddy, dockerfile: docker/caddy/Dockerfile }
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SHA }}
+      - name: Image repository
+        id: repo
+        # GHCR rejects upper case; the repository slug may have some.
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.repo.outputs.name }}/${{ matrix.name }}:${{ env.SHA }}
+          labels: org.opencontainers.image.revision=${{ env.SHA }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: images
+    # workflow_run path: images job is skipped (ci already pushed this SHA), deploy still runs —
+    # hence !cancelled() instead of the implicit needs gate. workflow_run's branch filter matches
+    # the head branch name, which a fork's pull request can also call "main": deploy only green
+    # push runs of this repository.
+    if: >-
+      !cancelled() && (
+      (github.event_name == 'workflow_dispatch' && needs.images.result == 'success') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+      AUTH_DOMAIN: ${{ vars.AUTH_DOMAIN }}
+      HOOKS_DOMAIN: ${{ vars.HOOKS_DOMAIN }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pinned host key: never StrictHostKeyChecking=no, that would accept a man in the middle.
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host server
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Upload release files
+        run: |
+          ssh server "mkdir -p electromarketing/releases/$SHA"
+          # Only what compose needs at runtime; -R keeps the relative paths.
+          rsync -azR --delete \
+            compose.prod.yaml compose.observability.yaml .env.example docker \
+            aspire/ElectroMarketing.AppHost/keycloak/realms aspire/ElectroMarketing.AppHost/keycloak/themes \
+            server-provision \
+            "server:electromarketing/releases/$SHA/"
+
+      - name: Registry login on the server
+        # The run-scoped GITHUB_TOKEN over stdin (never an argument, which would show in ps). It
+        # expires with this job and the last step logs out, so no registry credential stays behind.
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: printf '%s' "$TOKEN" | ssh server "docker login ghcr.io --username '$ACTOR' --password-stdin"
+
+      - name: Activate
+        id: activate
+        run: ssh server "IMAGE_REPO='ghcr.io/${GITHUB_REPOSITORY,,}' bash electromarketing/releases/$SHA/server-provision/release.sh activate $SHA"
+
+      - name: Smoke test
+        id: smoke
+        run: bash server-provision/tests/test-smoke.sh
+
+      - name: Restore the previous release (activation failed)
+        if: failure() && steps.activate.outcome == 'failure'
+        run: ssh server "bash electromarketing/current/server-provision/release.sh restore"
+
+      - name: Roll back (smoke test failed)
+        if: failure() && steps.smoke.outcome == 'failure'
+        run: |
+          ssh server "bash electromarketing/current/server-provision/release.sh rollback"
+          echo "::error::smoke test failed for $SHA; rolled back to the previous release"
+
+      - name: External security check
+        # Runs after a healthy deploy. A failure marks the run red but does not roll back: these
+        # are infrastructure regressions (firewall, TLS, exposed routes) that a rollback will not fix.
+        if: success()
+        # SSH probes are skipped: failed negotiations count towards fail2ban and could ban this runner
+        # before the last steps. test-host.sh checks the SSH policy on the server itself.
+        env:
+          SKIP_SSH: "1"
+        run: bash server-provision/tests/test-external.sh
+
+      - name: Registry logout on the server
+        if: always()
+        run: ssh server "docker logout ghcr.io" || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deploy of \`$SHA\`"
+            echo ""
+            echo "| step | result |"
+            echo "| --- | --- |"
+            echo "| activate | ${{ steps.activate.outcome }} |"
+            echo "| smoke test | ${{ steps.smoke.outcome }} |"
+            echo ""
+            echo '```'
+            ssh server "bash electromarketing/current/server-provision/release.sh status" 2>&1 | head -40 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Telegram notification
+        # Plain text, no parse_mode: commit subjects may contain Markdown-breaking characters.
+        # A notification failure never fails (or retries) the deploy — hence the final || true.
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_STATUS: ${{ job.status }}
+          ACTIVATE: ${{ steps.activate.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          commit=$(git log -1 --format='%h %s — %an' "$SHA")
+          case "$JOB_STATUS" in
+            success) icon="✅" verdict="deployed" ;;
+            *)       icon="❌" verdict="FAILED" ;;
+          esac
+          [ "$SMOKE" = "failure" ] && verdict="FAILED (smoke test) — rolled back"
+          [ "$ACTIVATE" = "failure" ] && verdict="FAILED (activate) — previous release restored"
+          msg=$(printf '%s ElectroMarketing %s\ncommit: %s\nactivate: %s · smoke: %s\n%s' \
+            "$icon" "$verdict" "$commit" "$ACTIVATE" "$SMOKE" "$RUN_URL")
+          curl -fsS -m 20 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode chat_id="$TELEGRAM_CHAT_ID" \
+            --data-urlencode text="$msg" >/dev/null || true

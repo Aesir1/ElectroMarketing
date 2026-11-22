@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="NetArchTest.Rules" />
+    <ProjectReference Include="..\..\src\ElectroMarketing.Domain\ElectroMarketing.Domain.csproj" />
+    <ProjectReference Include="..\..\src\ElectroMarketing.Application\ElectroMarketing.Application.csproj" />
+    <ProjectReference Include="..\..\src\ElectroMarketing.Infrastructure\ElectroMarketing.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\ElectroMarketing.Auth\ElectroMarketing.Auth.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,203 @@
+using System.ComponentModel.DataAnnotations;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json.Nodes;
+using ElectroMarketing.Auth;
+using Microsoft.Extensions.Logging;
+
+namespace ElectroMarketing.DbUtils;
+
+public sealed class SeedOptions
+{
+    public const string Section = "Seed";
+
+    [Required]
+    public string KeycloakAdminUser { get; set; } = "admin";
+
+    [Required]
+    public string KeycloakAdminPassword { get; set; } = string.Empty;
+
+    [Required]
+    public string AdminPassword { get; set; } = string.Empty;
+
+    [Required]
+    public string UserPassword { get; set; } = string.Empty;
+
+    /// <summary>Keycloak login theme to set on the realm; empty keeps the current one.</summary>
+    public string? LoginTheme { get; set; }
+
+    /// <summary>
+    /// Master realm frontendUrl, the tunnelled admin URL (e.g. http://localhost:8081). Keycloak builds the
+    /// admin console's login redirect from the frontend hostname rather than KC_HOSTNAME_ADMIN
+    /// (keycloak#42254), and the public domain blocks /realms/master. Empty keeps the current one.
+    /// </summary>
+    public string? MasterRealmFrontendUrl { get; set; }
+}
+
+/// <summary>
+/// Keycloak Admin REST API seeding. <see cref="SeedRealmAsync"/> (login theme, default role) is safe for production;
+/// <see cref="SeedAsync"/> adds the local dev users and localhost client URLs. Existing users are left untouched.
+/// </summary>
+internal sealed class KeycloakUsers(HttpClient http, SeedOptions options, ILogger<KeycloakUsers> logger)
+{
+    public const string Realm = "electromarketing";
+
+    /// <summary>Local development: realm settings, localhost URLs of the web client, and the two dev users.</summary>
+    public async Task<int> SeedAsync(CancellationToken ct)
+    {
+        Validator.ValidateObject(options, new ValidationContext(options), validateAllProperties: true);
+        await SeedRealmAsync(ct);
+        await EnsureWebClientUrlsAsync(ct);
+        var created = 0;
+        created += await EnsureUserAsync("admin@local.test", options.AdminPassword, [Roles.User, Roles.PlatformAdmin], ct) ? 1 : 0;
+        created += await EnsureUserAsync("user@local.test", options.UserPassword, [Roles.User], ct) ? 1 : 0;
+        return created;
+    }
+
+    /// <summary>Production-safe: the login theme and the default <c>user</c> role for self-registered accounts.</summary>
+    public async Task<int> SeedRealmAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(options.KeycloakAdminPassword))
+        {
+            throw new ValidationException("Seed:KeycloakAdminPassword is required.");
+        }
+
+        using var token = await http.PostAsync(
+            "realms/master/protocol/openid-connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "password",
+                ["client_id"] = "admin-cli",
+                ["username"] = options.KeycloakAdminUser,
+                ["password"] = options.KeycloakAdminPassword,
+            }),
+            ct);
+        token.EnsureSuccessStatusCode();
+        var accessToken = (await token.Content.ReadFromJsonAsync<JsonObject>(ct))!["access_token"]!.GetValue<string>();
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        await EnsureRealmThemeAsync(ct);
+        await EnsureMasterFrontendUrlAsync(ct);
+        return await EnsureDefaultRoleAsync(Roles.User, ct) ? 1 : 0;
+    }
+
+    /// <summary>Pins the master realm's frontendUrl to the tunnelled admin URL so the console login stays off the public domain.</summary>
+    private async Task EnsureMasterFrontendUrlAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(options.MasterRealmFrontendUrl))
+        {
+            return;
+        }
+
+        var realm = (await http.GetFromJsonAsync<JsonObject>("admin/realms/master", ct))!;
+        var attributes = realm["attributes"] as JsonObject ?? [];
+        if (attributes["frontendUrl"]?.GetValue<string>() == options.MasterRealmFrontendUrl)
+        {
+            return;
+        }
+
+        attributes["frontendUrl"] = options.MasterRealmFrontendUrl;
+        realm["attributes"] = attributes;
+        using var update = await http.PutAsJsonAsync("admin/realms/master", realm, ct);
+        update.EnsureSuccessStatusCode();
+        logger.LogInformation("Set master realm frontendUrl to {Url}", options.MasterRealmFrontendUrl);
+    }
+
+    /// <summary>
+    /// Self-registered users get <paramref name="role"/>: it is added to the realm's default-roles composite
+    /// (the realm import's defaultRole block is not applied by Keycloak).
+    /// </summary>
+    private async Task<bool> EnsureDefaultRoleAsync(string role, CancellationToken ct)
+    {
+        var composite = $"admin/realms/{Realm}/roles/default-roles-{Realm}/composites";
+        var current = await http.GetFromJsonAsync<JsonArray>($"{composite}/realm", ct) ?? [];
+        if (current.Any(r => r?["name"]?.GetValue<string>() == role))
+        {
+            return false;
+        }
+
+        var representation = await http.GetFromJsonAsync<JsonObject>($"admin/realms/{Realm}/roles/{role}", ct);
+        using var add = await http.PostAsJsonAsync(composite, new JsonArray(representation), ct);
+        add.EnsureSuccessStatusCode();
+        logger.LogInformation("Added {Role} to default-roles-{Realm}", role, Realm);
+        return true;
+    }
+
+    /// <summary>The realm import only runs once; bring an existing <c>web</c> client up to the HTTPS URLs.</summary>
+    private async Task EnsureWebClientUrlsAsync(CancellationToken ct)
+    {
+        var clients = await http.GetFromJsonAsync<JsonArray>($"admin/realms/{Realm}/clients?clientId=web", ct) ?? [];
+        if (clients.FirstOrDefault() is not JsonObject client)
+        {
+            return;
+        }
+
+        string[] redirects = ["https://localhost:3000/*", "http://localhost:3000/*"];
+        string[] origins = ["https://localhost:3000", "http://localhost:3000"];
+        const string postLogout = "https://localhost:3000/*##http://localhost:3000/*";
+        var current = client["redirectUris"]?.AsArray().Select(u => u!.GetValue<string>()).ToHashSet() ?? [];
+        var attributes = client["attributes"] as JsonObject ?? [];
+        if (redirects.All(current.Contains) && attributes["post.logout.redirect.uris"]?.GetValue<string>() == postLogout)
+        {
+            return;
+        }
+
+        client["redirectUris"] = new JsonArray([.. redirects.Select(u => JsonValue.Create(u))]);
+        client["webOrigins"] = new JsonArray([.. origins.Select(u => JsonValue.Create(u))]);
+        attributes["post.logout.redirect.uris"] = postLogout;
+        client["attributes"] = attributes;
+        using var update = await http.PutAsJsonAsync($"admin/realms/{Realm}/clients/{client["id"]!.GetValue<string>()}", client, ct);
+        update.EnsureSuccessStatusCode();
+        logger.LogInformation("Updated web client redirect URIs for HTTPS");
+    }
+
+    /// <summary>AU-5: the branded login theme (keycloak/themes/electromarketing, generated from web/config/branding.json).</summary>
+    private async Task EnsureRealmThemeAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(options.LoginTheme))
+        {
+            return;
+        }
+
+        using var update = await http.PutAsJsonAsync($"admin/realms/{Realm}", new { loginTheme = options.LoginTheme }, ct);
+        update.EnsureSuccessStatusCode();
+    }
+
+    private async Task<bool> EnsureUserAsync(string email, string password, string[] roles, CancellationToken ct)
+    {
+        var realm = $"admin/realms/{Realm}";
+        var existing = await http.GetFromJsonAsync<JsonArray>($"{realm}/users?email={Uri.EscapeDataString(email)}&exact=true", ct);
+        if (existing is { Count: > 0 })
+        {
+            logger.LogInformation("Keycloak user {Email} exists", email);
+            return false;
+        }
+
+        using var create = await http.PostAsJsonAsync(
+            $"{realm}/users",
+            new
+            {
+                username = email,
+                email,
+                enabled = true,
+                emailVerified = true,
+                firstName = email.Split('@')[0],
+                lastName = "Local",
+                credentials = new[] { new { type = "password", value = password, temporary = false } },
+            },
+            ct);
+        create.EnsureSuccessStatusCode();
+        var userId = create.Headers.Location!.Segments[^1];
+
+        var roleRepresentations = new JsonArray();
+        foreach (var role in roles)
+        {
+            roleRepresentations.Add(await http.GetFromJsonAsync<JsonObject>($"{realm}/roles/{role}", ct));
+        }
+
+        using var map = await http.PostAsJsonAsync($"{realm}/users/{userId}/role-mappings/realm", roleRepresentations, ct);
+        map.EnsureSuccessStatusCode();
+        logger.LogInformation("Keycloak user {Email} created with roles {Roles}", email, string.Join(',', roles));
+        return true;
+    }
+}

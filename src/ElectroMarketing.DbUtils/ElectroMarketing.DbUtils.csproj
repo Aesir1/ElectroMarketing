@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ElectroMarketing.Infrastructure\ElectroMarketing.Infrastructure.csproj" />
+    <ProjectReference Include="..\ElectroMarketing.Auth\ElectroMarketing.Auth.csproj" />
+    <ProjectReference Include="..\ElectroMarketing.ServiceDefaults\ElectroMarketing.ServiceDefaults.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="MasterData\*.json" LogicalName="ElectroMarketing.DbUtils.MasterData.%(Filename)%(Extension)" />
+    <InternalsVisibleTo Include="ElectroMarketing.DbUtils.Tests" />
+  </ItemGroup>
+</Project>

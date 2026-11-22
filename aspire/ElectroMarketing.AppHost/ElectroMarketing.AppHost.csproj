@@ -1,0 +1,19 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.5.4">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>electromarketing-apphost</UserSecretsId>
+    <!-- AddNextJsApp and WithoutHttpsCertificate are experimental; the Aspire CLI bundle is not required for dotnet run. -->
+    <NoWarn>$(NoWarn);ASPIREJAVASCRIPT001;ASPIRECERTIFICATES001;ASPIRE010</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Keycloak" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Minio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ElectroMarketing.Api\ElectroMarketing.Api.csproj" />
+    <ProjectReference Include="..\..\src\ElectroMarketing.DbUtils\ElectroMarketing.DbUtils.csproj" />
+  </ItemGroup>
+</Project>
