@@ -1,4 +1,4 @@
-# NF-5: restore → build (warnings as errors) → unit tests → contract check → integration tests → e2e → images.
+# NF-5: restore → build (warnings as errors) → unit tests → contract check → integration tests + coverage gate → e2e → images.
 name: ci
 
 on:
@@ -47,8 +47,6 @@ jobs:
           for t in Domain Application; do
             dotnet test --project tests/ElectroMarketing.$t.Tests -c Release -- --coverage --coverage-output-format cobertura --coverage-output "$PWD/TestResults/$t.cobertura.xml"
           done
-      - name: Coverage gate (TE-4, 80 % lines for Domain and Application)
-        run: python3 build/coverage-gate.py 0.8 ElectroMarketing.Domain,ElectroMarketing.Application TestResults/*.cobertura.xml
       - name: Frontend unit tests with coverage
         working-directory: web
         run: |
@@ -106,8 +104,11 @@ jobs:
           for t in Infrastructure Auth DbUtils Api; do
             dotnet test --project tests/ElectroMarketing.$t.Tests -c Release -- --coverage --coverage-output-format cobertura --coverage-output "$PWD/TestResults/$t.cobertura.xml"
           done
-      - name: Coverage report (not gated)
-        run: python3 build/coverage-gate.py 0.8 "" TestResults/*.cobertura.xml || true
+      # The unit-tests job's Domain and Application coverage files, merged with the ones above.
+      - uses: actions/download-artifact@v4
+        with: { name: coverage }
+      - name: Coverage gate (80 % lines for Domain and Application, unit + integration tests)
+        run: python3 build/coverage-gate.py 0.8 ElectroMarketing.Domain,ElectroMarketing.Application TestResults/*.cobertura.xml
 
   e2e:
     needs: integration-tests

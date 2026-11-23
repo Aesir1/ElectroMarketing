@@ -210,11 +210,12 @@ Example: an `Invoice` entity with GraphQL CRUD and a page.
 | End to end | `dotnet test --project tests/ElectroMarketing.IntegrationTests` (boots the AppHost, seeds, runs Playwright) | yes |
 
 The end-to-end suite uses the same fixed ports as a running AppHost; stop your dev AppHost first.
-Coverage gate: `python3 build/coverage-gate.py 0.8 ElectroMarketing.Domain,ElectroMarketing.Application <cobertura files>`.
+Coverage gate: `python3 build/coverage-gate.py 0.8 ElectroMarketing.Domain,ElectroMarketing.Application <cobertura files>`,
+fed with the coverage files of all unit and integration test projects (a line counts once any test covers it).
 
 ## CI
 
-`.github/workflows/ci.yml`: build with warnings as errors → unit tests + coverage gate → contract check
+`.github/workflows/ci.yml`: build with warnings as errors → unit tests → contract check
 (schema export + codegen diff, `graphql-inspector diff` on PRs, `has-pending-model-changes` per context) →
-gitleaks → Testcontainers integration tests → Aspire + Playwright end to end → multi-arch images
+gitleaks → Testcontainers integration tests + coverage gate → Aspire + Playwright end to end → multi-arch images
 (`src/ElectroMarketing.Api/Dockerfile`, `src/ElectroMarketing.DbUtils/Dockerfile`, `web/Dockerfile`).
