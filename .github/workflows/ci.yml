@@ -22,11 +22,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Restore
         run: |
-          dotnet restore ElectroMarketing.sln
+          dotnet restore ElectroMarketing.slnx
           dotnet tool restore
           (cd web && bun install --frozen-lockfile)
       - name: Build (TreatWarningsAsErrors)
-        run: dotnet build ElectroMarketing.sln --no-restore -c Release -p:CI=true
+        run: dotnet build ElectroMarketing.slnx --no-restore -c Release -p:CI=true
       - name: Frontend lint + typecheck + build
         working-directory: web
         run: |
